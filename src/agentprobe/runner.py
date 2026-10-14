@@ -2,10 +2,11 @@
 
 from .adapters.base import AgentAdapter
 from .schemas import AgentOutput, CaseResult, TestCase
+from .scoring import score_case
 
 
 def run_case(adapter: AgentAdapter, case: TestCase) -> CaseResult:
-    """Run one test case through an adapter and record the raw outcome."""
+    """Run one test case through an adapter, then score it."""
     start = time.perf_counter()
     try:
         output = adapter.run(case.input)
@@ -13,13 +14,14 @@ def run_case(adapter: AgentAdapter, case: TestCase) -> CaseResult:
         output = AgentOutput(error=f"{type(error).__name__}: {error}")
     latency_ms = (time.perf_counter() - start) * 1000
 
+    reasons = score_case(case, output)
     return CaseResult(
         case_id=case.id,
-        passed=False,  # real scoring arrives in Step 12
+        passed=not reasons,
         answer=output.answer,
         tools_used=output.tools_used,
         latency_ms=latency_ms,
-        failure_reasons=["not scored yet"],
+        failure_reasons=reasons,
         error=output.error,
     )
 
