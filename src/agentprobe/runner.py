@@ -1,18 +1,39 @@
 ﻿import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeout
 
 from .adapters.base import AgentAdapter
 from .schemas import AgentOutput, CaseResult, TestCase
 from .scoring import score_case
 
 
-def run_case(adapter: AgentAdapter, case: TestCase) -> CaseResult:
+def _call_adapter(adapter: AgentAdapter, text: str, timeout_s: float | None):
+    if timeout_s is None:
+        return adapter.run(text)
+    executor = ThreadPoolExecutor(max_workers=1)
+    try:
+        return executor.submit(adapter.run, text).result(timeout=timeout_s)
+    finally:
+        executor.shutdown(wait=False)  # do not wait for a hung adapter
+
+
+def run_case(
+    adapter: AgentAdapter, case: TestCase, timeout_s: float | None = None
+) -> CaseResult:
     """Run one test case through an adapter, then score it."""
     start = time.perf_counter()
     try:
-        output = adapter.run(case.input)
+        output = _call_adapter(adapter, case.input, timeout_s)
+    except FuturesTimeout:
+        output = AgentOutput(error=f"timeout after {timeout_s}s")
     except Exception as error:  # one bad case must not stop the whole run
         output = AgentOutput(error=f"{type(error).__name__}: {error}")
     latency_ms = (time.perf_counter() - start) * 1000
+
+    if not isinstance(output, AgentOutput):
+        output = AgentOutput(
+            error=f"invalid output: adapter returned {type(output).__name__}"
+        )
 
     reasons = score_case(case, output)
     return CaseResult(
@@ -26,6 +47,8 @@ def run_case(adapter: AgentAdapter, case: TestCase) -> CaseResult:
     )
 
 
-def run_suite(adapter: AgentAdapter, cases: list[TestCase]) -> list[CaseResult]:
+def run_suite(
+    adapter: AgentAdapter, cases: list[TestCase], timeout_s: float | None = None
+) -> list[CaseResult]:
     """Run every case, one at a time, and return all results."""
-    return [run_case(adapter, case) for case in cases]
+    return [run_case(adapter, case, timeout_s) for case in cases]
