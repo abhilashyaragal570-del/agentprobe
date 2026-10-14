@@ -1,0 +1,3 @@
+﻿{"id":"calc-001","input":"What is 458 * 923?","expected_answer":"422734","expected_tools":["calculator"],"tags":["calculator"]}
+{"id":"calc-002","input":"Use the calculator to find 10% of 500.","expected_answer":"50","expected_tools":["calculator"],"tags":["calculator"]}
+{"id":"basic-001","input":"Say hello in one short sentence.","expected_tools":[],"tags":["basic"]}
