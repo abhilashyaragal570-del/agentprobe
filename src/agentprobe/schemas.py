@@ -2,6 +2,7 @@
 
 
 class TestCase(BaseModel):
+    __test__ = False
     id: str
     input: str
     expected_answer: str | None = None
@@ -27,3 +28,17 @@ class CaseResult(BaseModel):
     latency_ms: float | None = None
     failure_reasons: list[str] = Field(default_factory=list)
     error: str | None = None
+
+
+class RunReport(BaseModel):
+    """One complete evaluation run: summary plus every case result."""
+
+    run_id: str
+    started_at: str
+    dataset: str
+    adapter: str
+    total: int
+    passed: int
+    pass_rate: float
+    results: list[CaseResult]
+
