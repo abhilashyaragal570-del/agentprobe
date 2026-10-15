@@ -28,7 +28,15 @@ if diffs:
 elif not before.agent_config and not after.agent_config:
     print("Note: neither report recorded its agent configuration.")
 
+for label, report in (("before", before), ("after", after)):
+    if report.errored:
+        print(f"Note: the {label} report has {report.errored} errored runs "
+              "(rate limit, timeout or connection). They are ignored here.")
+
 for d in compare_reports(before, after):
     extra = "" if d.p_value is None else f"  (p={d.p_value:.2f})"
-    print(f"  {d.verdict.upper():8} {d.case_id}: {pct(d.before)} -> {pct(d.after)}{extra}")
+    if d.before_errored or d.after_errored:
+        extra += f"  [errored: {d.before_errored} before, {d.after_errored} after]"
+    print(f"  {d.verdict.upper():12} {d.case_id}: {pct(d.before)} -> {pct(d.after)}{extra}")
 print("NOISE means the difference could easily be chance. Add more repeats to tell.")
+print("INCONCLUSIVE means one side had no usable runs. Re-run that case.")

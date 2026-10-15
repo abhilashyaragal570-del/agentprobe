@@ -7,6 +7,15 @@ from .schemas import AgentOutput, CaseResult, TestCase
 from .scoring import score_case
 
 
+class RunAborted(Exception):
+    """Raised when too many runs in a row errored, so the target is probably
+    down or rate limited. The runs finished so far are in .results."""
+
+    def __init__(self, message: str, results: list[CaseResult]):
+        super().__init__(message)
+        self.results = results
+
+
 def _call_adapter(adapter: AgentAdapter, text: str, timeout_s: float | None):
     if timeout_s is None:
         return adapter.run(text)
@@ -44,6 +53,7 @@ def run_case(
         latency_ms=latency_ms,
         failure_reasons=reasons,
         error=output.error,
+        errored=bool(output.error),
     )
 
 
@@ -53,17 +63,29 @@ def run_suite(
     timeout_s: float | None = None,
     repeats: int = 1,
     pause_s: float = 0.0,
+    abort_after_errors: int = 0,
 ) -> list[CaseResult]:
     """Run every case `repeats` times, one at a time. Results are grouped by case.
 
     pause_s waits between calls (not before the first) and is not counted in latency.
+    abort_after_errors stops the run with RunAborted once that many errored runs
+    happen in a row. 0 turns this off.
     """
     if repeats < 1:
         raise ValueError("repeats must be at least 1")
     results: list[CaseResult] = []
+    streak = 0
     for case in cases:
         for _ in range(repeats):
             if results and pause_s > 0:
                 time.sleep(pause_s)
-            results.append(run_case(adapter, case, timeout_s))
+            result = run_case(adapter, case, timeout_s)
+            results.append(result)
+            streak = streak + 1 if result.errored else 0
+            if abort_after_errors and streak >= abort_after_errors:
+                raise RunAborted(
+                    f"{streak} errored runs in a row. Last error: "
+                    f"{(result.error or '')[:200]}",
+                    results,
+                )
     return results

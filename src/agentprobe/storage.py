@@ -27,6 +27,7 @@ def build_report(
         repeats=repeats,
         summaries=summarize_cases(results),
         agent_config=dict(agent_config or {}),
+        errored=sum(1 for r in results if r.errored),
     )
 
 

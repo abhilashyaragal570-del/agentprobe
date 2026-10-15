@@ -31,10 +31,18 @@ class CaseResult(BaseModel):
     latency_ms: float | None = None
     failure_reasons: list[str] = Field(default_factory=list)
     error: str | None = None
+    # True when the run ended in an adapter error (rate limit, timeout,
+    # connection problem). The agent never got a fair chance, so the run is
+    # left out of pass rates and comparisons.
+    errored: bool = False
 
 
 class CaseSummary(BaseModel):
-    """All repeated runs of one test case, rolled up."""
+    """All repeated runs of one test case, rolled up.
+
+    runs counts every run. pass_rate and flaky only look at the scored runs,
+    which are the runs that did not error.
+    """
 
     case_id: str
     runs: int
@@ -42,6 +50,11 @@ class CaseSummary(BaseModel):
     pass_rate: float
     avg_latency_ms: float | None = None
     flaky: bool = False
+    errored: int = 0
+
+    @property
+    def scored(self) -> int:
+        return self.runs - self.errored
 
 
 class RunReport(BaseModel):
@@ -60,3 +73,5 @@ class RunReport(BaseModel):
     # Settings of the agent under test, e.g. {"prompt": "pirate"}.
     # Empty for reports saved before this field existed.
     agent_config: dict[str, str] = Field(default_factory=dict)
+    # Number of runs that errored and are not counted in pass_rate.
+    errored: int = 0

@@ -53,6 +53,8 @@ def score_case(case: TestCase, output: AgentOutput) -> list[str]:
 
 
 def pass_rate(results) -> float:
-    if not results:
+    """Share of scored runs that passed. Errored runs are not counted."""
+    scored = [r for r in results if not r.errored]
+    if not scored:
         return 0.0
-    return sum(1 for r in results if r.passed) / len(results)
+    return sum(1 for r in scored if r.passed) / len(scored)
