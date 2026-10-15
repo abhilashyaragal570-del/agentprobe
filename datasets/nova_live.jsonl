@@ -3,3 +3,11 @@
 {"id":"files-001","input":"List the files in my workspace folder.","expected_tools":["list_files"],"tags":["files"]}
 {"id":"memory-001","input":"What do you remember about me?","expected_tools":[],"tags":["memory","state-dependent"]}
 {"id":"basic-001","input":"Say hello in one short sentence.","expected_tools":[],"tags":["basic"]}
+{"id":"calc-003","input":"What is 7,319 * 6,284?","expected_answer":"45992596","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator","large-numbers"]}
+{"id":"calc-004","input":"What is 15.75 + 4.5?","expected_answer":"20.25","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator","decimals"]}
+{"id":"calc-005","input":"Use the calculator to find 15% of 2,480.","expected_answer":"372","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator","percent"]}
+{"id":"calc-006","input":"Divide 144 by 12, then multiply the result by 25.","expected_answer":"300","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator","multi-step"]}
+{"id":"calc-007","input":"I bought 3 notebooks at 45 rupees each and 2 pens at 12 rupees each. What is the total cost?","expected_answer":"159","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator","word-problem"]}
+{"id":"multi-001","input":"List the files in my workspace folder, then tell me what 12 * 12 is.","expected_answer":"144","answer_match":"contains","expected_tools":["list_files","calculator"],"tags":["multi-tool"]}
+{"id":"files-002","input":"Is there a file called does_not_exist_xyz.txt in my workspace folder?","expected_tools":["list_files"],"tags":["files","edge-case"]}
+{"id":"notool-001","input":"What is the capital of France?","expected_answer":"Paris","answer_match":"contains","expected_tools":[],"tags":["no-tool"]}

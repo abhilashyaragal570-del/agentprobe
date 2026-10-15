@@ -1,4 +1,4 @@
-# AgentProbe
+﻿# AgentProbe
 
 [![CI](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml/badge.svg)](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml)
 
@@ -99,5 +99,5 @@ src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (real Nova)
 scripts/                   run_eval.py, run_nova.py, compare.py
 docs/                      sample-run.md (output of a real 10-repeat Nova run)
-tests/unit/                81 tests, no network needed
+tests/unit/                76 tests, no network needed
 ```
