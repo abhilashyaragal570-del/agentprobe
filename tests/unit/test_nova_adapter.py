@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 import httpx
 import pytest
@@ -22,7 +22,7 @@ def make_adapter(chat_reply, chat_status=200, seen=None):
         return httpx.Response(404)
 
     client = httpx.Client(transport=httpx.MockTransport(handler), base_url="http://nova.test")
-    return NovaAdapter(client=client)
+    return NovaAdapter(client=client, retry_wait_s=0)
 
 
 def test_plain_answer_uses_a_fresh_conversation_and_cleans_up():
@@ -65,7 +65,7 @@ def test_timeout_is_recorded():
         raise httpx.ReadTimeout("slow", request=request)
 
     client = httpx.Client(transport=httpx.MockTransport(handler), base_url="http://nova.test")
-    out = NovaAdapter(client=client).run("hi")
+    out = NovaAdapter(client=client, retry_wait_s=0).run("hi")
     assert "timeout" in out.error
 
 
