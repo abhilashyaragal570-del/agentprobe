@@ -10,7 +10,7 @@ LLM agents give different answers on different runs, so a single passing test pr
 
 - Loads test cases from a JSONL dataset (input, expected answer, expected tools).
 - Runs them through an adapter: a mock agent for offline tests, or a real agent over HTTP.
-- Scores each run with failure reasons (`wrong answer`, `wrong tools`, `adapter error`).
+- Scores each run with failure reasons (`wrong answer`, `wrong tools`, `empty answer`, `adapter error`).
 - Repeats each case N times and reports a pass rate per case, marking cases that sometimes pass and sometimes fail as **flaky**.
 - Saves every run as a JSON report, including the agent settings you give it.
 - Compares two reports with a Fisher exact test, so a gap that could be chance is labelled `NOISE` instead of a regression.
@@ -37,14 +37,16 @@ The first real target is [Nova](https://github.com/abhilashyaragal570-del/nova),
 - reads the names of the tools Nova used from that trailer
 - retries on rate limits (HTTP 429 and 503) with a growing wait
 
-With Nova running:
+The live dataset, `datasets/nova_live.jsonl`, has 13 cases: single and multi-step arithmetic, large numbers, decimals, percentages, a word problem, listing files, a missing file, a question that needs two tools, a question that needs none, and a memory case.
+
+With Nova running (for example `uvicorn web.fastapi_app:app --port 8000` in the Nova folder):
 
 ```powershell
-python scripts\run_nova.py --repeats 3 --config prompt=pirate
+python scripts\run_nova.py --repeats 10 --config prompt=pirate
 python scripts\run_nova.py --only calc-001 --repeats 10 --config prompt=pirate
 ```
 
-The script asks for `NOVA_PASSWORD` and never prints it.
+A full run is 130 calls and takes about 25 to 30 minutes, because cases run one at a time. The script asks for `NOVA_PASSWORD` and never prints it. If Nova is not running, every case fails with a connection error.
 
 ## Recording the agent configuration
 
@@ -68,7 +70,7 @@ If the two reports recorded different configurations, `compare.py` prints a warn
 
 ## Sample run
 
-A real 10-runs-per-case run against Nova is in [docs/sample-run.md](docs/sample-run.md): 50 of 50 runs passed, with the exact command, the output, and how to read it. The raw JSON report is not committed.
+A real 13-case, 10-runs-per-case run against Nova is in [docs/sample-run.md](docs/sample-run.md): 129 of 130 runs passed. One case, `files-001`, was flaky because a single call stalled for about 140 seconds and returned nothing. The page shows the exact command, the output and how to read it. The raw JSON report is not committed.
 
 ## Continuous integration
 
@@ -80,6 +82,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **A test can be wrong, not the agent.** `memory-001` expected a `list_memories` call. Nova answered correctly from facts already in its prompt, so the expectation was changed.
 - **Rate limits look like failures.** One run scored 8/15, but every failure was an HTTP 429 from the model API, not a wrong answer. That led to retries and a pause between calls, and the next run scored 14/15.
 - **One slip is not a regression.** `calc-001` gave `423,734` instead of `422,734` once in 13 runs, then passed 10 of 10. A plain compare called a 100% to 67% change `WORSE`; the Fisher test labels it `NOISE`.
+- **A stall can look like a tool error.** In a 130-run check, one `files-001` run took about 140 seconds and returned an empty answer, and was scored as `wrong tools`. A re-run gave 10/10. AgentProbe now reports such runs as `empty answer` and shows each failure's latency.
 
 ## Limitations
 
@@ -89,6 +92,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **Cases are sequential.** Runs are one at a time, which is slow but keeps rate limits predictable.
 - **Read-only tools only.** Nova pauses tools that change things until a human approves them, so the live dataset avoids them.
 - **Configuration is self-reported.** The report stores the settings you pass with `--config`; it does not check them against the running agent.
+- **No regression caught yet.** Apart from the one stall, every case passes on the current Nova, so the dataset has not yet been shown to catch a real regression.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
 
 ## Project layout
@@ -96,8 +100,8 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 ```text
 src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, configdiff
 src/agentprobe/adapters/   base, mock, nova
-datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (real Nova)
+datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases)
 scripts/                   run_eval.py, run_nova.py, compare.py
-docs/                      sample-run.md (output of a real 10-repeat Nova run)
+docs/                      sample-run.md (output of a real 130-run Nova check)
 tests/unit/                82 tests, no network needed
 ```
