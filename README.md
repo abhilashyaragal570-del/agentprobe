@@ -10,8 +10,10 @@ LLM agents give different answers on different runs, so a single passing test pr
 
 - Loads test cases from a JSONL dataset (input, expected answer, expected tools).
 - Runs them through an adapter: a mock agent for offline tests, or a real agent over HTTP.
-- Scores each run with failure reasons (`wrong answer`, `wrong tools`, `empty answer`, `adapter error`).
+- Scores each run with failure reasons (`wrong answer`, `wrong tools`, `empty answer`).
+- Marks runs that ended in an adapter error (rate limit, timeout, connection refused) as **errored**, and leaves them out of pass rates and comparisons.
 - Repeats each case N times and reports a pass rate per case, marking cases that sometimes pass and sometimes fail as **flaky**.
+- Stops early when several runs in a row error, instead of grinding on and saving a useless report.
 - Saves every run as a JSON report, including the agent settings you give it.
 - Compares two reports with a Fisher exact test, so a gap that could be chance is labelled `NOISE` instead of a regression.
 - Warns when two compared reports used different agent settings.
@@ -46,7 +48,13 @@ python scripts\run_nova.py --repeats 10 --config prompt=pirate
 python scripts\run_nova.py --only calc-001 --repeats 10 --config prompt=pirate
 ```
 
-A full run is 130 calls and takes about 25 to 30 minutes, because cases run one at a time. The script asks for `NOVA_PASSWORD` and never prints it. If Nova is not running, every case fails with a connection error.
+A full run is 130 calls and takes about 25 to 30 minutes, because cases run one at a time. The script asks for `NOVA_PASSWORD` and never prints it.
+
+## Errored runs and early abort
+
+A run that ends in an adapter error is not a verdict on the agent: the model API may have been rate limited, the call may have timed out, or the server may not have been running. AgentProbe marks such runs `errored`, shows them separately, and excludes them from pass rates, flaky detection and comparisons. An empty answer with no error still counts as a failure, because the cause is unknown.
+
+`run_nova.py` stops after 5 errored runs in a row, saves no report, and says that Nova is probably down or rate limited. Change the limit with `--abort-after N`, or use `0` to turn it off. If a finished run contains errored runs, it prints a warning and the error messages, and you should re-run those cases before comparing.
 
 ## Recording the agent configuration
 
@@ -64,9 +72,9 @@ Cases default to exact matching. Set `"answer_match": "contains"` for LLM answer
 python scripts\compare.py reports\BEFORE.json reports\AFTER.json
 ```
 
-Each case gets a verdict: `SAME`, `BETTER`, `WORSE`, `NOISE`, `NEW` or `REMOVED`. `BETTER` and `WORSE` need p < 0.05 on a Fisher exact test of the pass and fail counts.
+Each case gets a verdict: `SAME`, `BETTER`, `WORSE`, `NOISE`, `NEW`, `REMOVED` or `INCONCLUSIVE`. `BETTER` and `WORSE` need p < 0.05 on a Fisher exact test of the pass and fail counts. `INCONCLUSIVE` means one side had no usable runs because every run errored.
 
-If the two reports recorded different configurations, `compare.py` prints a warning listing each key that changed, so a prompt or model change is not mistaken for a regression in the agent's code. If neither report recorded a configuration, it prints a note saying so.
+Errored runs are ignored in the comparison, so a rate limit cannot show up as a regression. If the two reports recorded different configurations, `compare.py` prints a warning listing each key that changed, so a prompt or model change is not mistaken for a regression in the agent's code. If neither report recorded a configuration, it prints a note saying so.
 
 ## Sample run
 
@@ -83,16 +91,18 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **Rate limits look like failures.** One run scored 8/15, but every failure was an HTTP 429 from the model API, not a wrong answer. That led to retries and a pause between calls, and the next run scored 14/15.
 - **One slip is not a regression.** `calc-001` gave `423,734` instead of `422,734` once in 13 runs, then passed 10 of 10. A plain compare called a 100% to 67% change `WORSE`; the Fisher test labels it `NOISE`.
 - **A stall can look like a tool error.** In a 130-run check, one `files-001` run took about 140 seconds and returned an empty answer, and was scored as `wrong tools`. A re-run gave 10/10. AgentProbe now reports such runs as `empty answer` and shows each failure's latency.
+- **Throttling can ruin a whole run.** A later 12-run check scored 0/12, with every run failing on error 429 after about 65 seconds. AgentProbe now marks those runs as errored and stops early, so they can no longer pass for a regression.
 
 ## Limitations
 
-- **Timeouts cannot kill a hung thread.** On timeout the case is recorded as failed and the run moves on, but a stuck call may keep running in the background. For HTTP agents the client's own timeout cancels the request properly.
+- **Timeouts cannot kill a hung thread.** On timeout the case is recorded as errored and the run moves on, but a stuck call may keep running in the background. For HTTP agents the client's own timeout cancels the request properly.
 - **Small samples.** With 3 runs per case, even 0/3 versus 3/3 gives p = 0.10 (`NOISE`). Use more repeats to detect differences. Ten or more is a sensible start.
 - **State-dependent cases.** Cases such as `memory-001` depend on what the agent has saved, so they are tagged `state-dependent` and are weak tests until the agent's state is controlled.
 - **Cases are sequential.** Runs are one at a time, which is slow but keeps rate limits predictable.
 - **Read-only tools only.** Nova pauses tools that change things until a human approves them, so the live dataset avoids them.
 - **Configuration is self-reported.** The report stores the settings you pass with `--config`; it does not check them against the running agent.
-- **No regression caught yet.** Apart from the one stall, every case passes on the current Nova, so the dataset has not yet been shown to catch a real regression.
+- **No regression caught yet.** Apart from the one stall, every case passes on the current Nova, so the dataset has not yet been shown to catch a real regression. A before-and-after test was started but blocked by the model API's rate limit.
+- **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
 
 ## Project layout
@@ -103,5 +113,5 @@ src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases)
 scripts/                   run_eval.py, run_nova.py, compare.py
 docs/                      sample-run.md (output of a real 130-run Nova check)
-tests/unit/                82 tests, no network needed
+tests/unit/                95 tests, no network needed
 ```

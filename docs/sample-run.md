@@ -6,6 +6,8 @@ A real AgentProbe run against [Nova](https://github.com/abhilashyaragal570-del/n
 - Dataset: `nova_live`
 - Date: 2026-10-15
 
+This run was made before AgentProbe separated errored runs from failed ones, so it uses the earlier output format. Nothing in it was an adapter error, so the numbers are the same under the current rules.
+
 ## Command
 
 ```powershell
@@ -43,11 +45,12 @@ Re-running `files-001` alone, 10 runs, gave 10/10. One stall in 130 runs is repo
 
 ## How to read this
 
-- `PASS` means every run of that case passed. `FLAKY` means some runs passed and some failed. `FAIL` means none passed.
+- `PASS` means every scored run of that case passed. `FLAKY` means some passed and some failed. `FAIL` means none passed. `ERROR` means every run errored, so the case was never really tested.
 - The pass rate per case matters more than the overall number, because a flaky case can hide inside a high average.
 - Latency is the average time per run in milliseconds.
 - `memory-001` is state-dependent: it depends on what Nova has saved, so treat its result as weaker evidence than the others.
 - A clean 10/10 means no failures were seen in 10 runs. It does not prove a case can never fail.
+- Runs that end in an adapter error (a 429 rate limit, a timeout, a refused connection) are marked errored. They are shown separately and left out of pass rates and comparisons.
 
 ## Compare your own runs
 
