@@ -64,5 +64,6 @@ for s in report.summaries:
     print(f"  {label} {s.case_id}: {s.passed}/{s.runs} ({s.avg_latency_ms:.0f} ms avg)")
 for r in results:
     if not r.passed:
-        print(f"    - {r.case_id}: {r.failure_reasons}")
+        took = "" if r.latency_ms is None else f" [{r.latency_ms / 1000:.0f}s]"
+        print(f"    - {r.case_id}{took}: {r.failure_reasons}")
 print(f"Saved to {path}")

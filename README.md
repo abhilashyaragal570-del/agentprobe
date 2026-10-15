@@ -99,5 +99,5 @@ src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (real Nova)
 scripts/                   run_eval.py, run_nova.py, compare.py
 docs/                      sample-run.md (output of a real 10-repeat Nova run)
-tests/unit/                76 tests, no network needed
+tests/unit/                82 tests, no network needed
 ```

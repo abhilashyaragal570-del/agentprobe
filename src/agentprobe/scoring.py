@@ -33,6 +33,10 @@ def score_case(case: TestCase, output: AgentOutput) -> list[str]:
 
     if output.error:
         reasons.append(f"adapter error: {output.error}")
+    elif not output.answer.strip():
+        # The call finished without an error but said nothing, for example a
+        # stalled call. Report it first so it is not mistaken for a tool problem.
+        reasons.append("empty answer")
 
     if case.expected_answer is not None and not answer_matches(case, output.answer):
         reasons.append(
