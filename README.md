@@ -1,5 +1,7 @@
 # AgentProbe
 
+[![CI](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml/badge.svg)](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml)
+
 Evaluation and regression testing for AI agents.
 
 LLM agents give different answers on different runs, so a single passing test proves little. AgentProbe runs every test case several times, scores each run, and tells you which cases are stable, which are flaky, and whether a change to your agent made things better, worse, or just noisier.
@@ -54,6 +56,10 @@ python scripts\compare.py reports\BEFORE.json reports\AFTER.json
 ```
 
 Each case gets a verdict: `SAME`, `BETTER`, `WORSE`, `NOISE`, `NEW` or `REMOVED`. `BETTER` and `WORSE` need p < 0.05 on a Fisher exact test of the pass and fail counts.
+
+## Continuous integration
+
+Every push to `main` and every pull request runs the unit tests and the mock-agent smoke test on Python 3.11 and 3.12 through GitHub Actions (`.github/workflows/ci.yml`). Real Nova runs are not part of CI because they need a live server and a password.
 
 ## What the Nova runs showed
 
