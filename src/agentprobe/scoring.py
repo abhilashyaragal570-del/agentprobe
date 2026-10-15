@@ -1,8 +1,30 @@
-﻿from .schemas import AgentOutput, TestCase
+import re
+
+from .schemas import AgentOutput, TestCase
 
 
 def exact_match(actual: str, expected: str) -> bool:
     return actual.strip() == expected.strip()
+
+
+def contains_match(actual: str, expected: str) -> bool:
+    """True if expected appears as a standalone value in actual.
+
+    Commas inside numbers are ignored (422,734 equals 422734), and "50"
+    does not match inside "500".
+    """
+    text = re.sub(r"(?<=\d),(?=\d)", "", actual).lower()
+    wanted = re.sub(r"(?<=\d),(?=\d)", "", expected).strip().lower()
+    if not wanted:
+        return False
+    pattern = r"(?<![\w.])" + re.escape(wanted) + r"(?![\w])"
+    return re.search(pattern, text) is not None
+
+
+def answer_matches(case: TestCase, actual: str) -> bool:
+    if case.answer_match == "contains":
+        return contains_match(actual, case.expected_answer)
+    return exact_match(actual, case.expected_answer)
 
 
 def score_case(case: TestCase, output: AgentOutput) -> list[str]:
@@ -12,11 +34,10 @@ def score_case(case: TestCase, output: AgentOutput) -> list[str]:
     if output.error:
         reasons.append(f"adapter error: {output.error}")
 
-    if case.expected_answer is not None and not exact_match(
-        output.answer, case.expected_answer
-    ):
+    if case.expected_answer is not None and not answer_matches(case, output.answer):
         reasons.append(
-            f"wrong answer: expected '{case.expected_answer}', got '{output.answer}'"
+            f"wrong answer ({case.answer_match}): expected '{case.expected_answer}', "
+            f"got '{output.answer}'"
         )
 
     if sorted(output.tools_used) != sorted(case.expected_tools):

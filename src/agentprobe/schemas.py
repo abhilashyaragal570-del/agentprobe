@@ -1,4 +1,6 @@
-﻿from pydantic import BaseModel, Field
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class TestCase(BaseModel):
@@ -6,6 +8,7 @@ class TestCase(BaseModel):
     id: str
     input: str
     expected_answer: str | None = None
+    answer_match: Literal["exact", "contains"] = "exact"
     expected_tools: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
 
@@ -41,4 +44,3 @@ class RunReport(BaseModel):
     passed: int
     pass_rate: float
     results: list[CaseResult]
-

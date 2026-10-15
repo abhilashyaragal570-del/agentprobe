@@ -1,0 +1,5 @@
+{"id":"calc-001","input":"What is 458 * 923?","expected_answer":"422734","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator"]}
+{"id":"calc-002","input":"Use the calculator to find 10% of 500.","expected_answer":"50","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator"]}
+{"id":"files-001","input":"List the files in my workspace folder.","expected_tools":["list_files"],"tags":["files"]}
+{"id":"memory-001","input":"What do you remember about me?","expected_tools":[],"tags":["memory","state-dependent"]}
+{"id":"basic-001","input":"Say hello in one short sentence.","expected_tools":[],"tags":["basic"]}
