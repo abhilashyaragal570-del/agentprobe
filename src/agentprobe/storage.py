@@ -1,12 +1,18 @@
-﻿import uuid
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .schemas import CaseResult, RunReport
 from .scoring import pass_rate
+from .summary import summarize_cases
 
 
-def build_report(dataset: str, adapter_name: str, results: list[CaseResult]) -> RunReport:
+def build_report(
+    dataset: str,
+    adapter_name: str,
+    results: list[CaseResult],
+    repeats: int = 1,
+) -> RunReport:
     now = datetime.now(timezone.utc)
     return RunReport(
         run_id=now.strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:6],
@@ -17,6 +23,8 @@ def build_report(dataset: str, adapter_name: str, results: list[CaseResult]) -> 
         passed=sum(1 for r in results if r.passed),
         pass_rate=pass_rate(results),
         results=results,
+        repeats=repeats,
+        summaries=summarize_cases(results),
     )
 
 

@@ -1,5 +1,6 @@
-﻿import json
+import json
 import os
+import time
 
 import httpx
 
@@ -7,6 +8,7 @@ from ..schemas import AgentOutput
 
 TOKEN_MARKER = "\x00"
 STREAM_ERROR_MARKER = "[Nova couldn't reply"
+RETRY_CODES = ("error 429", "error 503")
 
 
 class NovaAdapter:
@@ -18,6 +20,8 @@ class NovaAdapter:
         password: str | None = None,
         timeout_s: float = 60.0,
         client: httpx.Client | None = None,
+        max_retries: int = 3,
+        retry_wait_s: float = 10.0,
     ):
         if client is None:
             password = password or os.environ.get("NOVA_PASSWORD")
@@ -27,8 +31,20 @@ class NovaAdapter:
                 base_url=base_url, auth=("agentprobe", password), timeout=timeout_s
             )
         self._client = client
+        self.max_retries = max_retries
+        self.retry_wait_s = retry_wait_s
 
     def run(self, input_text: str) -> AgentOutput:
+        output = self._run_once(input_text)
+        for attempt in range(self.max_retries):
+            if not _is_retryable(output):
+                break
+            # Rate limits clear with time: wait longer on each retry.
+            time.sleep(self.retry_wait_s * (attempt + 1))
+            output = self._run_once(input_text)
+        return output
+
+    def _run_once(self, input_text: str) -> AgentOutput:
         conversation_id = None
         try:
             # A fresh conversation per case, so cases cannot influence each other.
@@ -56,6 +72,10 @@ class NovaAdapter:
             self._client.delete(f"/conversations/{conversation_id}")
         except httpx.HTTPError:
             pass  # cleanup must never turn a result into a failure
+
+
+def _is_retryable(output: AgentOutput) -> bool:
+    return bool(output.error) and any(code in output.error for code in RETRY_CODES)
 
 
 def _http_error(response: httpx.Response) -> str:

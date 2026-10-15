@@ -1,4 +1,4 @@
-﻿import time
+import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeout
 
@@ -48,7 +48,22 @@ def run_case(
 
 
 def run_suite(
-    adapter: AgentAdapter, cases: list[TestCase], timeout_s: float | None = None
+    adapter: AgentAdapter,
+    cases: list[TestCase],
+    timeout_s: float | None = None,
+    repeats: int = 1,
+    pause_s: float = 0.0,
 ) -> list[CaseResult]:
-    """Run every case, one at a time, and return all results."""
-    return [run_case(adapter, case, timeout_s) for case in cases]
+    """Run every case `repeats` times, one at a time. Results are grouped by case.
+
+    pause_s waits between calls (not before the first) and is not counted in latency.
+    """
+    if repeats < 1:
+        raise ValueError("repeats must be at least 1")
+    results: list[CaseResult] = []
+    for case in cases:
+        for _ in range(repeats):
+            if results and pause_s > 0:
+                time.sleep(pause_s)
+            results.append(run_case(adapter, case, timeout_s))
+    return results

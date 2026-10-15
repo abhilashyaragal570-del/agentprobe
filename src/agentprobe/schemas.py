@@ -33,6 +33,17 @@ class CaseResult(BaseModel):
     error: str | None = None
 
 
+class CaseSummary(BaseModel):
+    """All repeated runs of one test case, rolled up."""
+
+    case_id: str
+    runs: int
+    passed: int
+    pass_rate: float
+    avg_latency_ms: float | None = None
+    flaky: bool = False
+
+
 class RunReport(BaseModel):
     """One complete evaluation run: summary plus every case result."""
 
@@ -44,3 +55,5 @@ class RunReport(BaseModel):
     passed: int
     pass_rate: float
     results: list[CaseResult]
+    repeats: int = 1
+    summaries: list[CaseSummary] = Field(default_factory=list)
