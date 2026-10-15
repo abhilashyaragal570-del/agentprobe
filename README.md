@@ -66,6 +66,10 @@ Each case gets a verdict: `SAME`, `BETTER`, `WORSE`, `NOISE`, `NEW` or `REMOVED`
 
 If the two reports recorded different configurations, `compare.py` prints a warning listing each key that changed, so a prompt or model change is not mistaken for a regression in the agent's code. If neither report recorded a configuration, it prints a note saying so.
 
+## Sample run
+
+A real 10-runs-per-case run against Nova is in [docs/sample-run.md](docs/sample-run.md): 50 of 50 runs passed, with the exact command, the output, and how to read it. The raw JSON report is not committed.
+
 ## Continuous integration
 
 Every push to `main` and every pull request runs the unit tests and the mock-agent smoke test on Python 3.11 and 3.12 through GitHub Actions (`.github/workflows/ci.yml`). Real Nova runs are not part of CI because they need a live server and a password.
@@ -94,5 +98,6 @@ src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, 
 src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (real Nova)
 scripts/                   run_eval.py, run_nova.py, compare.py
+docs/                      sample-run.md (output of a real 10-repeat Nova run)
 tests/unit/                81 tests, no network needed
 ```
