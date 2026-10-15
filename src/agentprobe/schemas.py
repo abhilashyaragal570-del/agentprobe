@@ -57,3 +57,6 @@ class RunReport(BaseModel):
     results: list[CaseResult]
     repeats: int = 1
     summaries: list[CaseSummary] = Field(default_factory=list)
+    # Settings of the agent under test, e.g. {"prompt": "pirate"}.
+    # Empty for reports saved before this field existed.
+    agent_config: dict[str, str] = Field(default_factory=dict)

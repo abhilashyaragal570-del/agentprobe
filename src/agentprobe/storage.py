@@ -12,6 +12,7 @@ def build_report(
     adapter_name: str,
     results: list[CaseResult],
     repeats: int = 1,
+    agent_config: dict[str, str] | None = None,
 ) -> RunReport:
     now = datetime.now(timezone.utc)
     return RunReport(
@@ -25,6 +26,7 @@ def build_report(
         results=results,
         repeats=repeats,
         summaries=summarize_cases(results),
+        agent_config=dict(agent_config or {}),
     )
 
 
