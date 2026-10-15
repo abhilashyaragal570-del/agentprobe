@@ -12,8 +12,9 @@ LLM agents give different answers on different runs, so a single passing test pr
 - Runs them through an adapter: a mock agent for offline tests, or a real agent over HTTP.
 - Scores each run with failure reasons (`wrong answer`, `wrong tools`, `adapter error`).
 - Repeats each case N times and reports a pass rate per case, marking cases that sometimes pass and sometimes fail as **flaky**.
-- Saves every run as a JSON report.
+- Saves every run as a JSON report, including the agent settings you give it.
 - Compares two reports with a Fisher exact test, so a gap that could be chance is labelled `NOISE` instead of a regression.
+- Warns when two compared reports used different agent settings.
 
 ## Quick start
 
@@ -39,11 +40,17 @@ The first real target is [Nova](https://github.com/abhilashyaragal570-del/nova),
 With Nova running:
 
 ```powershell
-python scripts\run_nova.py --repeats 3
-python scripts\run_nova.py --only calc-001 --repeats 10
+python scripts\run_nova.py --repeats 3 --config prompt=pirate
+python scripts\run_nova.py --only calc-001 --repeats 10 --config prompt=pirate
 ```
 
 The script asks for `NOVA_PASSWORD` and never prints it.
+
+## Recording the agent configuration
+
+Pass `--config key=value` (as many pairs as you like) to store the agent's settings in the report, for example `--config prompt=pirate model=some-model temperature=0`. They are saved in the report's `agent_config` field and printed at the end of the run. If you leave `--config` out, the run says the configuration was not recorded. Reports saved before this feature still load; they just have an empty configuration.
+
+AgentProbe cannot read the agent's settings itself, so the values are whatever you type. Use the same keys and spelling every time, or the comparison will flag a difference that is only a typo.
 
 ## Matching answers
 
@@ -56,6 +63,8 @@ python scripts\compare.py reports\BEFORE.json reports\AFTER.json
 ```
 
 Each case gets a verdict: `SAME`, `BETTER`, `WORSE`, `NOISE`, `NEW` or `REMOVED`. `BETTER` and `WORSE` need p < 0.05 on a Fisher exact test of the pass and fail counts.
+
+If the two reports recorded different configurations, `compare.py` prints a warning listing each key that changed, so a prompt or model change is not mistaken for a regression in the agent's code. If neither report recorded a configuration, it prints a note saying so.
 
 ## Continuous integration
 
@@ -75,15 +84,15 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **State-dependent cases.** Cases such as `memory-001` depend on what the agent has saved, so they are tagged `state-dependent` and are weak tests until the agent's state is controlled.
 - **Cases are sequential.** Runs are one at a time, which is slow but keeps rate limits predictable.
 - **Read-only tools only.** Nova pauses tools that change things until a human approves them, so the live dataset avoids them.
-- **Results depend on agent configuration.** The Nova runs used a pirate system prompt, and the report does not yet record the agent's settings.
+- **Configuration is self-reported.** The report stores the settings you pass with `--config`; it does not check them against the running agent.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
 
 ## Project layout
 
 ```text
-src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats
+src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, configdiff
 src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (real Nova)
 scripts/                   run_eval.py, run_nova.py, compare.py
-tests/unit/                66 tests, no network needed
+tests/unit/                81 tests, no network needed
 ```
