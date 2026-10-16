@@ -17,6 +17,7 @@ LLM agents give different answers on different runs, so a single passing test pr
 - Saves every run as a JSON report, including the agent settings you give it.
 - Compares two reports with a Fisher exact test, so a gap that could be chance is labelled `NOISE` instead of a regression.
 - Warns when two compared reports used different agent settings.
+- Calculates how many runs per case you need to catch a drop of a given size.
 
 ## Quick start
 
@@ -76,6 +77,24 @@ Each case gets a verdict: `SAME`, `BETTER`, `WORSE`, `NOISE`, `NEW`, `REMOVED` o
 
 Errored runs are ignored in the comparison, so a rate limit cannot show up as a regression. If the two reports recorded different configurations, `compare.py` prints a warning listing each key that changed, so a prompt or model change is not mistaken for a regression in the agent's code. If neither report recorded a configuration, it prints a note saying so.
 
+## How many runs do I need?
+
+A small drop needs many more runs than a large one. `runs_needed.py` works out how often `compare.py` would call a drop `WORSE`, using the same Fisher test, for a given true pass rate before and after:
+
+```powershell
+python scripts\runs_needed.py --before 1.0 --after 0.8
+python scripts\runs_needed.py --before 1.0 --after 0.5
+```
+
+Results from running it:
+
+| Drop | 10 runs per side | 20 runs | 50 runs | Runs for 80% power |
+| --- | --- | --- | --- | --- |
+| 100% to 80% | caught 3% of the time | 37% | 95% | 39 |
+| 100% to 50% | caught 62% of the time | 99% | 100% | 12 |
+
+So a clean `SAME` or `NOISE` from a 10-run comparison does not rule out a drop from 100% to 80%: it would be missed about 97% of the time. The calculation assumes both sides have the pass rates you enter and use the same number of runs. Treat the answer as a minimum, because power does not rise perfectly smoothly with the run count.
+
 ## Sample run
 
 A real 13-case, 10-runs-per-case run against Nova is in [docs/sample-run.md](docs/sample-run.md): 129 of 130 runs passed. One case, `files-001`, was flaky because a single call stalled for about 140 seconds and returned nothing. The page shows the exact command, the output and how to read it. The raw JSON report is not committed.
@@ -101,22 +120,23 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 ## Limitations
 
 - **Timeouts cannot kill a hung thread.** On timeout the case is recorded as errored and the run moves on, but a stuck call may keep running in the background. For HTTP agents the client's own timeout cancels the request properly.
-- **Small samples.** With 3 runs per case, even 0/3 versus 3/3 gives p = 0.10 (`NOISE`). Use more repeats to detect differences. Ten or more is a sensible start.
+- **Small samples.** With 3 runs per case, even 0/3 versus 3/3 gives p = 0.10 (`NOISE`). Ten runs catch a drop from 100% to 50% about 62% of the time, but a drop from 100% to 80% only about 3% of the time. See "How many runs do I need?".
 - **State-dependent cases.** Cases such as `memory-001` depend on what the agent has saved, so they are tagged `state-dependent` and are weak tests until the agent's state is controlled.
 - **Cases are sequential.** Runs are one at a time, which is slow but keeps rate limits predictable.
 - **Read-only tools only.** Nova pauses tools that change things until a human approves them, so the live dataset avoids them.
 - **Configuration is self-reported.** The report stores the settings you pass with `--config`; it does not check them against the running agent.
-- **Only a large regression has been tested.** The one regression check used a change I chose so that it would show up, on three cases with 5 runs each. A subtle regression, such as a drop from 100% to 80%, needs more runs per case and has not been tried. No regression has appeared on its own: apart from one stall, every case passes on the current Nova.
+- **Only a large regression has been tested live.** The one regression check used a change I chose so that it would show up, on three cases with 5 runs each. A subtle regression has not been tried against Nova. The calculator says it would need about 39 runs per side for a drop from 100% to 80%, but that is a calculation, not a measured result. No regression has appeared on its own: apart from one stall, every case passes on the current Nova.
+- **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
 
 ## Project layout
 
 ```text
-src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, configdiff
+src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, power, configdiff
 src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases)
-scripts/                   run_eval.py, run_nova.py, compare.py
+scripts/                   run_eval.py, run_nova.py, compare.py, runs_needed.py
 docs/                      sample-run.md (130-run Nova check), regression-check.md (deliberate regression)
-tests/unit/                95 tests, no network needed
+tests/unit/                103 tests, no network needed
 ```
