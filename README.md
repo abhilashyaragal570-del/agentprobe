@@ -49,7 +49,7 @@ python scripts\run_nova.py --repeats 10 --config prompt=pirate
 python scripts\run_nova.py --only calc-001 --repeats 10 --config prompt=pirate
 ```
 
-A full run is 130 calls and takes about 25 to 30 minutes, because cases run one at a time. The script asks for `NOVA_PASSWORD` and never prints it. A mistyped password shows up as `HTTP 401` errors and triggers the early abort.
+A full run is 130 calls and takes about 25 to 30 minutes, because cases run one at a time. The script asks for `NOVA_PASSWORD` and never prints it. A mistyped password shows up as `HTTP 401` errors and triggers the early abort. Nova must be started with the same `NOVA_PASSWORD` value you give the script; setting `$env:NOVA_PASSWORD` in both windows avoids a mismatch.
 
 ## Errored runs and early abort
 
@@ -112,6 +112,10 @@ A real 13-case, 10-runs-per-case run against Nova is in [docs/sample-run.md](doc
 
 [docs/partial-regression.md](docs/partial-regression.md) follows up with four new mid-difficulty cases. Under the same mild prompt, two of them dropped partway in a 6-run pilot. A 40-runs-per-side test of `border-002` went from 39/39 to 21/39 (100% to 54%) and compare called it `WORSE`, with the two timeouts left out. This is a partial drop caught on a real agent, but not the subtle 100% to 80% drop.
 
+## Soft prompt pilot
+
+[docs/soft-prompt-pilot.md](docs/soft-prompt-pilot.md) records a last try at a drop near 100% to 80%. With a softer prompt that kept the calculator as the default, a 10-run pilot of the four border cases left three at 100% and `border-004` at 7/9, with both failures empty answers and three `503` errors during the run. That looks like server trouble rather than a prompt effect, so I stopped there and did not run the full comparison. The 100% to 80% case stays untested live.
+
 ## Continuous integration
 
 Every push to `main` and every pull request runs the unit tests and the mock-agent smoke test on Python 3.11 and 3.12 through GitHub Actions (`.github/workflows/ci.yml`). Real Nova runs are not part of CI because they need a live server and a password.
@@ -128,6 +132,8 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **A prompt change hit whole cases.** Under a mild prompt, three calculator cases stayed at 6/6 and three went to 0/6, with none in between.
 - **A partial drop was caught, and the pilot overstated the pass rate.** `border-002` read 4/6 in a pilot but 21/39 (54%) over 40 runs, against 39/39 on the normal prompt. Six-run pilots find candidates; they do not measure them.
 - **Occasional timeouts are normal.** One run in 40 timed out on each side of the border test. Because errored runs are excluded, they did not change either pass rate.
+- **A softer prompt did not give a clean 80% case.** Three border cases stayed at 100%, and the fourth was clouded by `503` errors and empty answers.
+- **The early abort catches a wrong password.** Two runs stopped with `HTTP 401: Password required` after 5 errored runs and saved no report, which is the intended behaviour.
 
 ## Limitations
 
@@ -137,7 +143,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **Cases are sequential.** Runs are one at a time, which is slow but keeps rate limits predictable.
 - **Read-only tools only.** Nova pauses tools that change things until a human approves them, so the live dataset avoids them.
 - **Configuration is self-reported.** The report stores the settings you pass with `--config`; it does not check them against the running agent.
-- **No drop as small as 100% to 80% has been tested live.** The largest partial drop caught was 100% to 54% on one case, with 40 runs per side. The calculator's figure of about 39 runs per side for 100% to 80% is a calculation, not a measured result. No regression has appeared on its own: apart from occasional stalls and timeouts, every case passes on the current Nova.
+- **No drop as small as 100% to 80% has been tested live.** The largest partial drop caught was 100% to 54% on one case, with 40 runs per side. A softer prompt was tried in a 10-run pilot and did not give a usable candidate. The calculator's figure of about 39 runs per side for 100% to 80% is a calculation, not a measured result. No regression has appeared on its own: apart from occasional stalls and timeouts, every case passes on the current Nova.
 - **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
@@ -150,6 +156,6 @@ src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, 
 src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases), nova_border.jsonl (4 border cases)
 scripts/                   run_eval.py, run_nova.py, compare.py, runs_needed.py
-docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md
+docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md, soft-prompt-pilot.md
 tests/unit/                111 tests, no network needed
 ```
