@@ -40,7 +40,7 @@ The first real target is [Nova](https://github.com/abhilashyaragal570-del/nova),
 - reads the names of the tools Nova used from that trailer
 - retries on rate limits (HTTP 429 and 503) with a growing wait
 
-The live dataset, `datasets/nova_live.jsonl`, has 13 cases: single and multi-step arithmetic, large numbers, decimals, percentages, a word problem, listing files, a missing file, a question that needs two tools, a question that needs none, and a memory case. A second dataset, `datasets/nova_border.jsonl`, has four mid-difficulty sums used to look for partial drops. Pick a dataset with `--dataset nova_border`.
+The live dataset, `datasets/nova_live.jsonl`, has 13 cases: single and multi-step arithmetic, large numbers, decimals, percentages, a word problem, listing files, a missing file, a question that needs two tools, a question that needs none, and a memory case. A second dataset, `datasets/nova_border.jsonl`, has four mid-difficulty sums used to look for partial drops. Pick a dataset with `--dataset nova_border`. Unit tests load every dataset file and check for empty inputs, duplicate case ids and empty expected answers, so a typo is caught before a live run.
 
 With Nova running (for example `uvicorn web.fastapi_app:app --port 8000` in the Nova folder):
 
@@ -141,6 +141,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
+- **The run scripts have no automated tests.** `run_nova.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`.
 
 ## Project layout
 
@@ -150,5 +151,5 @@ src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases), nova_border.jsonl (4 border cases)
 scripts/                   run_eval.py, run_nova.py, compare.py, runs_needed.py
 docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md
-tests/unit/                103 tests, no network needed
+tests/unit/                111 tests, no network needed
 ```
