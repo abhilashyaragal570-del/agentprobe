@@ -103,6 +103,10 @@ A real 13-case, 10-runs-per-case run against Nova is in [docs/sample-run.md](doc
 
 [docs/regression-check.md](docs/regression-check.md) shows AgentProbe catching a change I made on purpose. I told Nova never to use tools, ran three cases, and compared them with the sample run. All three (`calc-001`, `calc-002`, `files-001`) came out `WORSE`, with every failure a `wrong tools` reason and no `wrong answer`. The configuration warning named the prompt change. The page has the commands, the output and what the check does and does not show.
 
+## Subtle regression attempt
+
+[docs/subtle-regression.md](docs/subtle-regression.md) records an attempt to make Nova regress by only a little. I gave it a mild prompt ("answer simple arithmetic from memory") and ran three 6-run pilots. Three cases stayed at 6/6 and three fell to 0/6, with nothing in between, so the attempt did not produce a partial drop. The page lists every case, what the results do and do not show, and ideas for a real subtle test.
+
 ## Continuous integration
 
 Every push to `main` and every pull request runs the unit tests and the mock-agent smoke test on Python 3.11 and 3.12 through GitHub Actions (`.github/workflows/ci.yml`). Real Nova runs are not part of CI because they need a live server and a password.
@@ -116,6 +120,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **A stall can look like a tool error.** In a 130-run check, one `files-001` run took about 140 seconds and returned an empty answer, and was scored as `wrong tools`. A re-run gave 10/10. AgentProbe now reports such runs as `empty answer` and shows each failure's latency.
 - **Throttling can ruin a whole run.** A later 12-run check scored 0/12, with every run failing on error 429 after about 65 seconds. AgentProbe now marks those runs as errored and stops early, so they can no longer pass for a regression. The abort stopped two more attempts the same way, with no report saved.
 - **A deliberate regression is caught.** With a no-tools prompt, `calc-001` and `calc-002` fell from 100% to 0% and `files-001` from 90% to 0%, all `WORSE` at p < 0.01, with no errored runs. The answers stayed correct; only the tool calls disappeared. A check that looked only at answers would have missed it.
+- **A prompt change hit whole cases.** Under a mild prompt, three calculator cases stayed at 6/6 and three went to 0/6, with none in between. Small drops are hard to produce on purpose, and a 6-run pilot cannot show that a 6/6 case is unchanged.
 
 ## Limitations
 
@@ -125,7 +130,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **Cases are sequential.** Runs are one at a time, which is slow but keeps rate limits predictable.
 - **Read-only tools only.** Nova pauses tools that change things until a human approves them, so the live dataset avoids them.
 - **Configuration is self-reported.** The report stores the settings you pass with `--config`; it does not check them against the running agent.
-- **Only a large regression has been tested live.** The one regression check used a change I chose so that it would show up, on three cases with 5 runs each. A subtle regression has not been tried against Nova. The calculator says it would need about 39 runs per side for a drop from 100% to 80%, but that is a calculation, not a measured result. No regression has appeared on its own: apart from one stall, every case passes on the current Nova.
+- **No subtle regression has been tested live.** The one full regression check used a change chosen so that it would show up. The attempt at a subtle one (see above) produced only all-or-nothing drops, so the calculator's figure of about 39 runs per side for a drop from 100% to 80% is a calculation, not a measured result. No regression has appeared on its own: apart from one stall, every case passes on the current Nova.
 - **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
@@ -137,6 +142,6 @@ src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, 
 src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases)
 scripts/                   run_eval.py, run_nova.py, compare.py, runs_needed.py
-docs/                      sample-run.md (130-run Nova check), regression-check.md (deliberate regression)
+docs/                      sample-run.md (130-run Nova check), regression-check.md (deliberate regression), subtle-regression.md (attempt at a small drop)
 tests/unit/                103 tests, no network needed
 ```
