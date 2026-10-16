@@ -1,0 +1,4 @@
+{"id":"border-001","input":"What is 47 * 38?","expected_answer":"1786","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator","border"]}
+{"id":"border-002","input":"What is 256 + 389?","expected_answer":"645","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator","border"]}
+{"id":"border-003","input":"What is 84 * 15?","expected_answer":"1260","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator","border"]}
+{"id":"border-004","input":"What is 1,250 - 468?","expected_answer":"782","answer_match":"contains","expected_tools":["calculator"],"tags":["calculator","border"]}

@@ -40,7 +40,7 @@ The first real target is [Nova](https://github.com/abhilashyaragal570-del/nova),
 - reads the names of the tools Nova used from that trailer
 - retries on rate limits (HTTP 429 and 503) with a growing wait
 
-The live dataset, `datasets/nova_live.jsonl`, has 13 cases: single and multi-step arithmetic, large numbers, decimals, percentages, a word problem, listing files, a missing file, a question that needs two tools, a question that needs none, and a memory case.
+The live dataset, `datasets/nova_live.jsonl`, has 13 cases: single and multi-step arithmetic, large numbers, decimals, percentages, a word problem, listing files, a missing file, a question that needs two tools, a question that needs none, and a memory case. A second dataset, `datasets/nova_border.jsonl`, has four mid-difficulty sums used to look for partial drops. Pick a dataset with `--dataset nova_border`.
 
 With Nova running (for example `uvicorn web.fastapi_app:app --port 8000` in the Nova folder):
 
@@ -49,13 +49,13 @@ python scripts\run_nova.py --repeats 10 --config prompt=pirate
 python scripts\run_nova.py --only calc-001 --repeats 10 --config prompt=pirate
 ```
 
-A full run is 130 calls and takes about 25 to 30 minutes, because cases run one at a time. The script asks for `NOVA_PASSWORD` and never prints it.
+A full run is 130 calls and takes about 25 to 30 minutes, because cases run one at a time. The script asks for `NOVA_PASSWORD` and never prints it. A mistyped password shows up as `HTTP 401` errors and triggers the early abort.
 
 ## Errored runs and early abort
 
 A run that ends in an adapter error is not a verdict on the agent: the model API may have been rate limited, the call may have timed out, or the server may not have been running. AgentProbe marks such runs `errored`, shows them separately, and excludes them from pass rates, flaky detection and comparisons. An empty answer with no error still counts as a failure, because the cause is unknown.
 
-`run_nova.py` stops after 5 errored runs in a row, saves no report, and says that Nova is probably down or rate limited. Change the limit with `--abort-after N`, or use `0` to turn it off. If a finished run contains errored runs, it prints a warning and the error messages, and you should re-run those cases before comparing.
+`run_nova.py` stops after 5 errored runs in a row and saves no report. Its message says Nova is probably down or rate limited, but the last line shows the real error (429 for a quota, 401 for a wrong password). Change the limit with `--abort-after N`, or use `0` to turn it off. If a finished run contains errored runs, it prints a warning and the error messages, and you should re-run those cases before comparing.
 
 ## Recording the agent configuration
 
@@ -91,6 +91,7 @@ Results from running it:
 | Drop | 10 runs per side | 20 runs | 50 runs | Runs for 80% power |
 | --- | --- | --- | --- | --- |
 | 100% to 80% | caught 3% of the time | 37% | 95% | 39 |
+| 100% to 67% | caught 21% of the time | 84% | 100% | 19 |
 | 100% to 50% | caught 62% of the time | 99% | 100% | 12 |
 
 So a clean `SAME` or `NOISE` from a 10-run comparison does not rule out a drop from 100% to 80%: it would be missed about 97% of the time. The calculation assumes both sides have the pass rates you enter and use the same number of runs. Treat the answer as a minimum, because power does not rise perfectly smoothly with the run count.
@@ -107,6 +108,10 @@ A real 13-case, 10-runs-per-case run against Nova is in [docs/sample-run.md](doc
 
 [docs/subtle-regression.md](docs/subtle-regression.md) records an attempt to make Nova regress by only a little. I gave it a mild prompt ("answer simple arithmetic from memory") and ran three 6-run pilots. Three cases stayed at 6/6 and three fell to 0/6, with nothing in between, so the attempt did not produce a partial drop. The page lists every case, what the results do and do not show, and ideas for a real subtle test.
 
+## Partial regression
+
+[docs/partial-regression.md](docs/partial-regression.md) follows up with four new mid-difficulty cases. Under the same mild prompt, two of them dropped partway in a 6-run pilot. A 40-runs-per-side test of `border-002` went from 39/39 to 21/39 (100% to 54%) and compare called it `WORSE`, with the two timeouts left out. This is a partial drop caught on a real agent, but not the subtle 100% to 80% drop.
+
 ## Continuous integration
 
 Every push to `main` and every pull request runs the unit tests and the mock-agent smoke test on Python 3.11 and 3.12 through GitHub Actions (`.github/workflows/ci.yml`). Real Nova runs are not part of CI because they need a live server and a password.
@@ -118,9 +123,11 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **Rate limits look like failures.** One run scored 8/15, but every failure was an HTTP 429 from the model API, not a wrong answer. That led to retries and a pause between calls, and the next run scored 14/15.
 - **One slip is not a regression.** `calc-001` gave `423,734` instead of `422,734` once in 13 runs, then passed 10 of 10. A plain compare called a 100% to 67% change `WORSE`; the Fisher test labels it `NOISE`.
 - **A stall can look like a tool error.** In a 130-run check, one `files-001` run took about 140 seconds and returned an empty answer, and was scored as `wrong tools`. A re-run gave 10/10. AgentProbe now reports such runs as `empty answer` and shows each failure's latency.
-- **Throttling can ruin a whole run.** A later 12-run check scored 0/12, with every run failing on error 429 after about 65 seconds. AgentProbe now marks those runs as errored and stops early, so they can no longer pass for a regression. The abort stopped two more attempts the same way, with no report saved.
+- **Throttling can ruin a whole run.** A later 12-run check scored 0/12, with every run failing on error 429 after about 65 seconds. AgentProbe now marks those runs as errored and stops early, so they can no longer pass for a regression. The abort stopped later attempts the same way, with no report saved.
 - **A deliberate regression is caught.** With a no-tools prompt, `calc-001` and `calc-002` fell from 100% to 0% and `files-001` from 90% to 0%, all `WORSE` at p < 0.01, with no errored runs. The answers stayed correct; only the tool calls disappeared. A check that looked only at answers would have missed it.
-- **A prompt change hit whole cases.** Under a mild prompt, three calculator cases stayed at 6/6 and three went to 0/6, with none in between. Small drops are hard to produce on purpose, and a 6-run pilot cannot show that a 6/6 case is unchanged.
+- **A prompt change hit whole cases.** Under a mild prompt, three calculator cases stayed at 6/6 and three went to 0/6, with none in between.
+- **A partial drop was caught, and the pilot overstated the pass rate.** `border-002` read 4/6 in a pilot but 21/39 (54%) over 40 runs, against 39/39 on the normal prompt. Six-run pilots find candidates; they do not measure them.
+- **Occasional timeouts are normal.** One run in 40 timed out on each side of the border test. Because errored runs are excluded, they did not change either pass rate.
 
 ## Limitations
 
@@ -130,7 +137,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **Cases are sequential.** Runs are one at a time, which is slow but keeps rate limits predictable.
 - **Read-only tools only.** Nova pauses tools that change things until a human approves them, so the live dataset avoids them.
 - **Configuration is self-reported.** The report stores the settings you pass with `--config`; it does not check them against the running agent.
-- **No subtle regression has been tested live.** The one full regression check used a change chosen so that it would show up. The attempt at a subtle one (see above) produced only all-or-nothing drops, so the calculator's figure of about 39 runs per side for a drop from 100% to 80% is a calculation, not a measured result. No regression has appeared on its own: apart from one stall, every case passes on the current Nova.
+- **No drop as small as 100% to 80% has been tested live.** The largest partial drop caught was 100% to 54% on one case, with 40 runs per side. The calculator's figure of about 39 runs per side for 100% to 80% is a calculation, not a measured result. No regression has appeared on its own: apart from occasional stalls and timeouts, every case passes on the current Nova.
 - **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
@@ -140,8 +147,8 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 ```text
 src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, power, configdiff
 src/agentprobe/adapters/   base, mock, nova
-datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases)
+datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases), nova_border.jsonl (4 border cases)
 scripts/                   run_eval.py, run_nova.py, compare.py, runs_needed.py
-docs/                      sample-run.md (130-run Nova check), regression-check.md (deliberate regression), subtle-regression.md (attempt at a small drop)
+docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md
 tests/unit/                103 tests, no network needed
 ```

@@ -17,6 +17,11 @@ parser.add_argument("--repeats", type=int, default=3, help="runs per case")
 parser.add_argument("--pause", type=float, default=4.0, help="seconds between calls")
 parser.add_argument("--only", nargs="*", help="run only these case ids")
 parser.add_argument(
+    "--dataset",
+    default="nova_live",
+    help="name of a file in datasets/ without .jsonl (default: nova_live)",
+)
+parser.add_argument(
     "--abort-after",
     type=int,
     default=5,
@@ -36,10 +41,14 @@ try:
 except ValueError as exc:
     raise SystemExit(str(exc))
 
+dataset_path = ROOT / "datasets" / f"{args.dataset}.jsonl"
+if not dataset_path.exists():
+    raise SystemExit(f"Dataset not found: {dataset_path}")
+
 if not os.environ.get("NOVA_PASSWORD"):
     os.environ["NOVA_PASSWORD"] = getpass("NOVA_PASSWORD: ")
 
-cases = load_cases(ROOT / "datasets" / "nova_live.jsonl")
+cases = load_cases(dataset_path)
 if args.only:
     cases = [c for c in cases if c.id in args.only]
     if not cases:
@@ -63,7 +72,7 @@ except RunAborted as exc:
     )
 
 report = build_report(
-    "nova_live",
+    args.dataset,
     "nova",
     results,
     repeats=args.repeats,
