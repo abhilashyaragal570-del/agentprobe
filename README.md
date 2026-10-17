@@ -1,6 +1,7 @@
 ﻿# AgentProbe
 
 [![CI](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml/badge.svg)](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/agentprobe-eval.svg)](https://pypi.org/project/agentprobe-eval/)
 
 Evaluation and regression testing for AI agents.
 
@@ -21,6 +22,7 @@ from agentprobe.compare import compare_reports
 - **The PyPI package is the library only.** The command-line scripts (`run_nova.py`, `run_http.py`, `compare.py`, `runs_needed.py`, `run_eval.py`) and the datasets live in the [GitHub repository](https://github.com/abhilashyaragal570-del/agentprobe), so clone it to use them.
 - **Name clash.** A different, unrelated project on PyPI is called `agentprobe` and also provides a Python module named `agentprobe`. Do not install both into the same environment, because they would overwrite each other's files.
 - You can also install straight from GitHub: `pip install git+https://github.com/abhilashyaragal570-del/agentprobe.git`.
+- The package is published on [PyPI](https://pypi.org/project/agentprobe-eval/). The description shown there is fixed for each released version, so it can lag behind this README until the next release.
 
 ## What it does
 
@@ -216,7 +218,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, power, configdiff, markdown_report
 src/agentprobe/adapters/   base, mock, nova, http
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases), nova_border.jsonl (4 border cases)
-scripts/                   run_eval.py, run_nova.py, run_http.py, compare.py, runs_needed.py
+scripts/                   run_eval.py, run_http.py, run_nova.py, compare.py, runs_needed.py
 docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md, soft-prompt-pilot.md
 tests/unit/                170 tests, no network needed
 ```
