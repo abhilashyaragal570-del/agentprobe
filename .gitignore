@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 .env
 *.db
+dist/
+build/
 reports/*
 !reports/.gitkeep
 reports/*.json

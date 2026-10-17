@@ -6,6 +6,22 @@ Evaluation and regression testing for AI agents.
 
 LLM agents give different answers on different runs, so a single passing test proves little. AgentProbe runs every test case several times, scores each run, and tells you which cases are stable, which are flaky, and whether a change to your agent made things better, worse, or just noisier.
 
+## Install
+
+```powershell
+pip install agentprobe-eval
+```
+
+The package on PyPI is named `agentprobe-eval`, but you import it as `agentprobe`:
+
+```python
+from agentprobe.compare import compare_reports
+```
+
+- **The PyPI package is the library only.** The command-line scripts (`run_nova.py`, `run_http.py`, `compare.py`, `runs_needed.py`, `run_eval.py`) and the datasets live in the [GitHub repository](https://github.com/abhilashyaragal570-del/agentprobe), so clone it to use them.
+- **Name clash.** A different, unrelated project on PyPI is called `agentprobe` and also provides a Python module named `agentprobe`. Do not install both into the same environment, because they would overwrite each other's files.
+- You can also install straight from GitHub: `pip install git+https://github.com/abhilashyaragal570-del/agentprobe.git`.
+
 ## What it does
 
 - Loads test cases from a JSONL dataset (input, expected answer, expected tools).
@@ -21,7 +37,7 @@ LLM agents give different answers on different runs, so a single passing test pr
 - Writes a comparison as a markdown table you can paste into a README, issue or pull request.
 - Calculates how many runs per case you need to catch a drop of a given size.
 
-## Quick start
+## Quick start (from a clone)
 
 ```powershell
 python -m venv .venv
@@ -141,23 +157,23 @@ So a clean `SAME` or `NOISE` from a 10-run comparison does not rule out a drop f
 
 ## Sample run
 
-A real 13-case, 10-runs-per-case run against Nova is in [docs/sample-run.md](docs/sample-run.md): 129 of 130 runs passed. One case, `files-001`, was flaky because a single call stalled for about 140 seconds and returned nothing. The page shows the exact command, the output and how to read it. The raw JSON report is not committed.
+A real 13-case, 10-runs-per-case run against Nova is in [docs/sample-run.md](https://github.com/abhilashyaragal570-del/agentprobe/blob/main/docs/sample-run.md): 129 of 130 runs passed. One case, `files-001`, was flaky because a single call stalled for about 140 seconds and returned nothing. The page shows the exact command, the output and how to read it. The raw JSON report is not committed.
 
 ## Regression check
 
-[docs/regression-check.md](docs/regression-check.md) shows AgentProbe catching a change I made on purpose. I told Nova never to use tools, ran three cases, and compared them with the sample run. All three (`calc-001`, `calc-002`, `files-001`) came out `WORSE`, with every failure a `wrong tools` reason and no `wrong answer`. The configuration warning named the prompt change. The page has the commands, the output and what the check does and does not show.
+[docs/regression-check.md](https://github.com/abhilashyaragal570-del/agentprobe/blob/main/docs/regression-check.md) shows AgentProbe catching a change I made on purpose. I told Nova never to use tools, ran three cases, and compared them with the sample run. All three (`calc-001`, `calc-002`, `files-001`) came out `WORSE`, with every failure a `wrong tools` reason and no `wrong answer`. The configuration warning named the prompt change. The page has the commands, the output and what the check does and does not show.
 
 ## Subtle regression attempt
 
-[docs/subtle-regression.md](docs/subtle-regression.md) records an attempt to make Nova regress by only a little. I gave it a mild prompt ("answer simple arithmetic from memory") and ran three 6-run pilots. Three cases stayed at 6/6 and three fell to 0/6, with nothing in between, so the attempt did not produce a partial drop. The page lists every case, what the results do and do not show, and ideas for a real subtle test.
+[docs/subtle-regression.md](https://github.com/abhilashyaragal570-del/agentprobe/blob/main/docs/subtle-regression.md) records an attempt to make Nova regress by only a little. I gave it a mild prompt ("answer simple arithmetic from memory") and ran three 6-run pilots. Three cases stayed at 6/6 and three fell to 0/6, with nothing in between, so the attempt did not produce a partial drop. The page lists every case, what the results do and do not show, and ideas for a real subtle test.
 
 ## Partial regression
 
-[docs/partial-regression.md](docs/partial-regression.md) follows up with four new mid-difficulty cases. Under the same mild prompt, two of them dropped partway in a 6-run pilot. A 40-runs-per-side test of `border-002` went from 39/39 to 21/39 (100% to 54%) and compare called it `WORSE`, with the two timeouts left out. This is a partial drop caught on a real agent, but not the subtle 100% to 80% drop.
+[docs/partial-regression.md](https://github.com/abhilashyaragal570-del/agentprobe/blob/main/docs/partial-regression.md) follows up with four new mid-difficulty cases. Under the same mild prompt, two of them dropped partway in a 6-run pilot. A 40-runs-per-side test of `border-002` went from 39/39 to 21/39 (100% to 54%) and compare called it `WORSE`, with the two timeouts left out. This is a partial drop caught on a real agent, but not the subtle 100% to 80% drop.
 
 ## Soft prompt pilot
 
-[docs/soft-prompt-pilot.md](docs/soft-prompt-pilot.md) records a last try at a drop near 100% to 80%. With a softer prompt that kept the calculator as the default, a 10-run pilot of the four border cases left three at 100% and `border-004` at 7/9, with both failures empty answers and three `503` errors during the run. That looks like server trouble rather than a prompt effect, so I stopped there and did not run the full comparison. The 100% to 80% case stays untested live.
+[docs/soft-prompt-pilot.md](https://github.com/abhilashyaragal570-del/agentprobe/blob/main/docs/soft-prompt-pilot.md) records a last try at a drop near 100% to 80%. With a softer prompt that kept the calculator as the default, a 10-run pilot of the four border cases left three at 100% and `border-004` at 7/9, with both failures empty answers and three `503` errors during the run. That looks like server trouble rather than a prompt effect, so I stopped there and did not run the full comparison. The 100% to 80% case stays untested live.
 
 ## Continuous integration
 
@@ -190,6 +206,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **The generic HTTP adapter is only tested with a fake transport.** It handles one JSON request and one JSON reply. It does not support streaming replies, multi-turn conversations, or request shapes where the input is nested inside the body (only top-level keys, plus fixed extra fields in code).
+- **The PyPI package has no command-line entry points.** The scripts are only in the repository, so using them means cloning it.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
 - **The run scripts have no automated tests.** `run_nova.py`, `run_http.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`. The comparison logic, the config helpers, the markdown builder, the HTTP adapter and the runner (including parallel runs) are unit tested.
 
