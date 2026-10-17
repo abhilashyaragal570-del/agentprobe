@@ -147,7 +147,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
-- **The run scripts have no automated tests.** `run_nova.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`.
+- **The run scripts have no automated tests.** `run_nova.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`. The comparison logic and config helpers behind `compare.py` are unit tested.
 
 ## Project layout
 
@@ -157,5 +157,5 @@ src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases), nova_border.jsonl (4 border cases)
 scripts/                   run_eval.py, run_nova.py, compare.py, runs_needed.py
 docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md, soft-prompt-pilot.md
-tests/unit/                111 tests, no network needed
+tests/unit/                133 tests, no network needed
 ```
