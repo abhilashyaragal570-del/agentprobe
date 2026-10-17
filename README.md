@@ -14,6 +14,7 @@ LLM agents give different answers on different runs, so a single passing test pr
 - Marks runs that ended in an adapter error (rate limit, timeout, connection refused) as **errored**, and leaves them out of pass rates and comparisons.
 - Repeats each case N times and reports a pass rate per case, marking cases that sometimes pass and sometimes fail as **flaky**.
 - Stops early when several runs in a row error, instead of grinding on and saving a useless report.
+- Optionally runs several calls at once (`--workers`), with results kept in case order.
 - Saves every run as a JSON report, including the agent settings you give it.
 - Compares two reports with a Fisher exact test, so a gap that could be chance is labelled `NOISE` instead of a regression.
 - Warns when two compared reports used different agent settings.
@@ -50,7 +51,7 @@ python scripts\run_nova.py --repeats 10 --config prompt=pirate
 python scripts\run_nova.py --only calc-001 --repeats 10 --config prompt=pirate
 ```
 
-A full run is 130 calls and takes about 25 to 30 minutes, because cases run one at a time. The script asks for `NOVA_PASSWORD` and never prints it. A mistyped password shows up as `HTTP 401` errors and triggers the early abort. Nova must be started with the same `NOVA_PASSWORD` value you give the script; setting `$env:NOVA_PASSWORD` in both windows avoids a mismatch.
+A full run is 130 calls and takes about 25 to 30 minutes, because by default cases run one at a time (see "Parallel runs"). The script asks for `NOVA_PASSWORD` and never prints it. A mistyped password shows up as `HTTP 401` errors and triggers the early abort. Nova must be started with the same `NOVA_PASSWORD` value you give the script; setting `$env:NOVA_PASSWORD` in both windows avoids a mismatch.
 
 ## Testing any HTTP agent
 
@@ -66,6 +67,22 @@ python scripts\run_http.py --url http://localhost:9000/ask --dataset my_cases --
 - `--token-env NAME` sends the value of that environment variable as a bearer token, so the secret never appears on the command line.
 
 Your own cases go in a JSONL file in `datasets/` (same format as the Nova datasets). A reply that is not JSON, or has no answer at the path you gave, is recorded as an errored run, not a failure, so a wrong field name triggers the early abort instead of producing a fake 0%. The adapter retries HTTP 429 and 503 with a growing wait. It is covered by unit tests that use a fake transport; it has not been run against a live third-party agent.
+
+## Parallel runs
+
+By default every call runs one at a time. Add `--workers N` (1 to 5) to `run_nova.py` or `run_http.py` to run N calls at once:
+
+```powershell
+python scripts\run_nova.py --repeats 10 --workers 2 --config prompt=pirate
+```
+
+- Results are returned in the original case order, whatever order the calls finish in, so reports and comparisons look the same as a sequential run.
+- The pause between calls applies per worker. With 2 workers and a 4 second pause, the agent sees about one request every 2 seconds.
+- Early abort still works, but "errored runs in a row" is counted in the order the calls finish. Queued runs are cancelled, and calls already in flight finish in the background, so the script can take up to the request timeout to exit.
+- More workers means more requests per second, so rate limits (429 and 503) become more likely. Start with 2, and compare a parallel run with a sequential one before trusting it.
+- The worker count is not saved in the report. If you want it recorded, add it yourself, for example `--config workers=2`.
+
+The parallel runner is covered by unit tests with a fake adapter. It has not been run against a live agent.
 
 ## Errored runs and early abort
 
@@ -166,7 +183,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **Timeouts cannot kill a hung thread.** On timeout the case is recorded as errored and the run moves on, but a stuck call may keep running in the background. For HTTP agents the client's own timeout cancels the request properly.
 - **Small samples.** With 3 runs per case, even 0/3 versus 3/3 gives p = 0.10 (`NOISE`). Ten runs catch a drop from 100% to 50% about 62% of the time, but a drop from 100% to 80% only about 3% of the time. See "How many runs do I need?".
 - **State-dependent cases.** Cases such as `memory-001` depend on what the agent has saved, so they are tagged `state-dependent` and are weak tests until the agent's state is controlled.
-- **Cases are sequential.** Runs are one at a time, which is slow but keeps rate limits predictable.
+- **Sequential by default.** Runs are one at a time unless you pass `--workers`, which is slow but keeps rate limits predictable. Parallel runs have only been tested with a fake adapter, and I do not know whether Nova handles concurrent conversations without interference.
 - **Read-only tools only.** Nova pauses tools that change things until a human approves them, so the live dataset avoids them.
 - **Configuration is self-reported.** The report stores the settings you pass with `--config`; it does not check them against the running agent.
 - **No drop as small as 100% to 80% has been tested live.** The largest partial drop caught was 100% to 54% on one case, with 40 runs per side. A softer prompt was tried in a 10-run pilot and did not give a usable candidate. The calculator's figure of about 39 runs per side for 100% to 80% is a calculation, not a measured result. No regression has appeared on its own: apart from occasional stalls and timeouts, every case passes on the current Nova.
@@ -174,7 +191,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **The generic HTTP adapter is only tested with a fake transport.** It handles one JSON request and one JSON reply. It does not support streaming replies, multi-turn conversations, or request shapes where the input is nested inside the body (only top-level keys, plus fixed extra fields in code).
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
-- **The run scripts have no automated tests.** `run_nova.py`, `run_http.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`. The comparison logic, the config helpers, the markdown builder and the HTTP adapter are unit tested.
+- **The run scripts have no automated tests.** `run_nova.py`, `run_http.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`. The comparison logic, the config helpers, the markdown builder, the HTTP adapter and the runner (including parallel runs) are unit tested.
 
 ## Project layout
 
@@ -184,5 +201,5 @@ src/agentprobe/adapters/   base, mock, nova, http
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases), nova_border.jsonl (4 border cases)
 scripts/                   run_eval.py, run_nova.py, run_http.py, compare.py, runs_needed.py
 docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md, soft-prompt-pilot.md
-tests/unit/                162 tests, no network needed
+tests/unit/                170 tests, no network needed
 ```

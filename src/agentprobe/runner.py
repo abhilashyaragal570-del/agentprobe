@@ -1,5 +1,6 @@
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import TimeoutError as FuturesTimeout
 
 from .adapters.base import AgentAdapter
@@ -57,22 +58,21 @@ def run_case(
     )
 
 
-def run_suite(
+def _abort(streak: int, last: CaseResult, results: list[CaseResult]) -> RunAborted:
+    return RunAborted(
+        f"{streak} errored runs in a row. Last error: {(last.error or '')[:200]}",
+        results,
+    )
+
+
+def _run_sequential(
     adapter: AgentAdapter,
     cases: list[TestCase],
-    timeout_s: float | None = None,
-    repeats: int = 1,
-    pause_s: float = 0.0,
-    abort_after_errors: int = 0,
+    timeout_s: float | None,
+    repeats: int,
+    pause_s: float,
+    abort_after_errors: int,
 ) -> list[CaseResult]:
-    """Run every case `repeats` times, one at a time. Results are grouped by case.
-
-    pause_s waits between calls (not before the first) and is not counted in latency.
-    abort_after_errors stops the run with RunAborted once that many errored runs
-    happen in a row. 0 turns this off.
-    """
-    if repeats < 1:
-        raise ValueError("repeats must be at least 1")
     results: list[CaseResult] = []
     streak = 0
     for case in cases:
@@ -83,9 +83,72 @@ def run_suite(
             results.append(result)
             streak = streak + 1 if result.errored else 0
             if abort_after_errors and streak >= abort_after_errors:
-                raise RunAborted(
-                    f"{streak} errored runs in a row. Last error: "
-                    f"{(result.error or '')[:200]}",
-                    results,
-                )
+                raise _abort(streak, result, results)
     return results
+
+
+def _run_parallel(
+    adapter: AgentAdapter,
+    cases: list[TestCase],
+    timeout_s: float | None,
+    repeats: int,
+    pause_s: float,
+    abort_after_errors: int,
+    workers: int,
+) -> list[CaseResult]:
+    jobs = [case for case in cases for _ in range(repeats)]
+    local = threading.local()
+
+    def work(case: TestCase) -> CaseResult:
+        # Each worker pauses between its own calls, not before its first.
+        if pause_s > 0 and getattr(local, "started", False):
+            time.sleep(pause_s)
+        local.started = True
+        return run_case(adapter, case, timeout_s)
+
+    executor = ThreadPoolExecutor(max_workers=workers)
+    futures = {executor.submit(work, case): index for index, case in enumerate(jobs)}
+    done: dict[int, CaseResult] = {}
+    streak = 0
+    try:
+        for future in as_completed(futures):
+            result = future.result()  # run_case never raises
+            done[futures[future]] = result
+            streak = streak + 1 if result.errored else 0
+            if abort_after_errors and streak >= abort_after_errors:
+                executor.shutdown(wait=False, cancel_futures=True)
+                raise _abort(streak, result, [done[i] for i in sorted(done)])
+    finally:
+        executor.shutdown(wait=False)
+    return [done[i] for i in sorted(done)]
+
+
+def run_suite(
+    adapter: AgentAdapter,
+    cases: list[TestCase],
+    timeout_s: float | None = None,
+    repeats: int = 1,
+    pause_s: float = 0.0,
+    abort_after_errors: int = 0,
+    workers: int = 1,
+) -> list[CaseResult]:
+    """Run every case `repeats` times. Results are grouped by case, in case order.
+
+    pause_s waits between calls (not before the first) and is not counted in latency.
+    abort_after_errors stops the run with RunAborted once that many errored runs
+    happen in a row. 0 turns this off.
+    workers runs that many calls at once. 1 (the default) is fully sequential.
+    With more than one worker the pause applies per worker, and "in a row" is
+    counted in the order the calls finish.
+    """
+    if repeats < 1:
+        raise ValueError("repeats must be at least 1")
+    if workers < 1:
+        raise ValueError("workers must be at least 1")
+    if workers == 1:
+        return _run_sequential(
+            adapter, cases, timeout_s, repeats, pause_s, abort_after_errors
+        )
+    return _run_parallel(
+        adapter, cases, timeout_s, repeats, pause_s, abort_after_errors, workers
+    )

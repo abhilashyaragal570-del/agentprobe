@@ -10,6 +10,7 @@ from agentprobe.runner import RunAborted, run_suite
 from agentprobe.storage import build_report, save_report
 
 ROOT = Path(__file__).resolve().parents[1]
+MAX_WORKERS = 5
 
 parser = argparse.ArgumentParser(
     description="Run a dataset against any HTTP agent that takes and returns JSON."
@@ -48,6 +49,12 @@ parser.add_argument(
     help="stop after this many errored runs in a row (0 = never stop)",
 )
 parser.add_argument(
+    "--workers",
+    type=int,
+    default=1,
+    help=f"calls to run at once, 1 to {MAX_WORKERS} (default 1; more risks rate limits)",
+)
+parser.add_argument(
     "--config",
     nargs="*",
     default=[],
@@ -55,6 +62,9 @@ parser.add_argument(
     help="agent settings to record in the report, e.g. model=x temperature=0",
 )
 args = parser.parse_args()
+
+if not 1 <= args.workers <= MAX_WORKERS:
+    raise SystemExit(f"--workers must be between 1 and {MAX_WORKERS}")
 
 try:
     agent_config = parse_config_pairs(args.config)
@@ -84,6 +94,12 @@ if not args.tools_field and any(c.expected_tools for c in cases):
         "will fail with 'wrong tools'."
     )
 
+if args.workers > 1:
+    print(
+        f"Running {args.workers} calls at once. Watch for 429 and 503 errors, and "
+        "compare the pass rates with a sequential run before trusting them."
+    )
+
 adapter = HttpAdapter(
     args.url,
     request_field=args.request_field,
@@ -102,6 +118,7 @@ try:
         repeats=args.repeats,
         pause_s=args.pause,
         abort_after_errors=args.abort_after,
+        workers=args.workers,
     )
 except RunAborted as exc:
     raise SystemExit(
