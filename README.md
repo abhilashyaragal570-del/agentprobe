@@ -9,7 +9,7 @@ LLM agents give different answers on different runs, so a single passing test pr
 ## What it does
 
 - Loads test cases from a JSONL dataset (input, expected answer, expected tools).
-- Runs them through an adapter: a mock agent for offline tests, or a real agent over HTTP.
+- Runs them through an adapter: a mock agent for offline tests, a Nova adapter, or a generic adapter for any HTTP agent that takes and returns JSON.
 - Scores each run with failure reasons (`wrong answer`, `wrong tools`, `empty answer`).
 - Marks runs that ended in an adapter error (rate limit, timeout, connection refused) as **errored**, and leaves them out of pass rates and comparisons.
 - Repeats each case N times and reports a pass rate per case, marking cases that sometimes pass and sometimes fail as **flaky**.
@@ -52,11 +52,26 @@ python scripts\run_nova.py --only calc-001 --repeats 10 --config prompt=pirate
 
 A full run is 130 calls and takes about 25 to 30 minutes, because cases run one at a time. The script asks for `NOVA_PASSWORD` and never prints it. A mistyped password shows up as `HTTP 401` errors and triggers the early abort. Nova must be started with the same `NOVA_PASSWORD` value you give the script; setting `$env:NOVA_PASSWORD` in both windows avoids a mismatch.
 
+## Testing any HTTP agent
+
+`HttpAdapter` and `scripts/run_http.py` work with any endpoint that accepts a JSON body and returns JSON. You say where the input goes and where the answer sits in the reply:
+
+```powershell
+python scripts\run_http.py --url http://localhost:9000/ask --dataset my_cases --request-field question --answer-field data.reply --repeats 10 --config model=my-model
+```
+
+- `--request-field` is the JSON key the input is sent under (default `message`).
+- `--answer-field` is a dotted path to the answer in the reply (default `answer`). Use numbers for list positions, for example `choices.0.text`.
+- `--tools-field` is an optional dotted path to a list of tool names (strings, or objects with a `name`). Without it, cases that expect tools fail with `wrong tools`, and the script prints a note.
+- `--token-env NAME` sends the value of that environment variable as a bearer token, so the secret never appears on the command line.
+
+Your own cases go in a JSONL file in `datasets/` (same format as the Nova datasets). A reply that is not JSON, or has no answer at the path you gave, is recorded as an errored run, not a failure, so a wrong field name triggers the early abort instead of producing a fake 0%. The adapter retries HTTP 429 and 503 with a growing wait. It is covered by unit tests that use a fake transport; it has not been run against a live third-party agent.
+
 ## Errored runs and early abort
 
 A run that ends in an adapter error is not a verdict on the agent: the model API may have been rate limited, the call may have timed out, or the server may not have been running. AgentProbe marks such runs `errored`, shows them separately, and excludes them from pass rates, flaky detection and comparisons. An empty answer with no error still counts as a failure, because the cause is unknown.
 
-`run_nova.py` stops after 5 errored runs in a row and saves no report. Its message says Nova is probably down or rate limited, but the last line shows the real error (429 for a quota, 401 for a wrong password). Change the limit with `--abort-after N`, or use `0` to turn it off. If a finished run contains errored runs, it prints a warning and the error messages, and you should re-run those cases before comparing.
+`run_nova.py` and `run_http.py` stop after 5 errored runs in a row and save no report. Their message points at the likely causes, but the last line shows the real error (429 for a quota, 401 for a wrong password). Change the limit with `--abort-after N`, or use `0` to turn it off. If a finished run contains errored runs, it prints a warning and the error messages, and you should re-run those cases before comparing.
 
 ## Recording the agent configuration
 
@@ -157,16 +172,17 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **No drop as small as 100% to 80% has been tested live.** The largest partial drop caught was 100% to 54% on one case, with 40 runs per side. A softer prompt was tried in a 10-run pilot and did not give a usable candidate. The calculator's figure of about 39 runs per side for 100% to 80% is a calculation, not a measured result. No regression has appeared on its own: apart from occasional stalls and timeouts, every case passes on the current Nova.
 - **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
+- **The generic HTTP adapter is only tested with a fake transport.** It handles one JSON request and one JSON reply. It does not support streaming replies, multi-turn conversations, or request shapes where the input is nested inside the body (only top-level keys, plus fixed extra fields in code).
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
-- **The run scripts have no automated tests.** `run_nova.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`. The comparison logic, the config helpers and the markdown builder behind `compare.py` are unit tested.
+- **The run scripts have no automated tests.** `run_nova.py`, `run_http.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`. The comparison logic, the config helpers, the markdown builder and the HTTP adapter are unit tested.
 
 ## Project layout
 
 ```text
 src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, power, configdiff, markdown_report
-src/agentprobe/adapters/   base, mock, nova
+src/agentprobe/adapters/   base, mock, nova, http
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases), nova_border.jsonl (4 border cases)
-scripts/                   run_eval.py, run_nova.py, compare.py, runs_needed.py
+scripts/                   run_eval.py, run_nova.py, run_http.py, compare.py, runs_needed.py
 docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md, soft-prompt-pilot.md
-tests/unit/                143 tests, no network needed
+tests/unit/                162 tests, no network needed
 ```
