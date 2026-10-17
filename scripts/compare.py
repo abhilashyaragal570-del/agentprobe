@@ -1,14 +1,23 @@
-import sys
+import argparse
+from pathlib import Path
 
 from agentprobe.compare import compare_reports
 from agentprobe.configdiff import config_differences
+from agentprobe.markdown_report import comparison_markdown
 from agentprobe.storage import load_report
 
-if len(sys.argv) != 3:
-    raise SystemExit("Usage: python scripts\\compare.py BEFORE.json AFTER.json")
+parser = argparse.ArgumentParser(description="Compare two AgentProbe reports.")
+parser.add_argument("before", help="path to the BEFORE report (.json)")
+parser.add_argument("after", help="path to the AFTER report (.json)")
+parser.add_argument(
+    "--markdown",
+    metavar="FILE",
+    help="also write the comparison as a markdown file",
+)
+args = parser.parse_args()
 
-before = load_report(sys.argv[1])
-after = load_report(sys.argv[2])
+before = load_report(args.before)
+after = load_report(args.after)
 
 
 def pct(value):
@@ -40,3 +49,9 @@ for d in compare_reports(before, after):
     print(f"  {d.verdict.upper():12} {d.case_id}: {pct(d.before)} -> {pct(d.after)}{extra}")
 print("NOISE means the difference could easily be chance. Add more repeats to tell.")
 print("INCONCLUSIVE means one side had no usable runs. Re-run that case.")
+
+if args.markdown:
+    out = Path(args.markdown)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(comparison_markdown(before, after), encoding="utf-8")
+    print(f"Markdown written to {out}")

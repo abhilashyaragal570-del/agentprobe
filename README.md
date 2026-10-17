@@ -17,6 +17,7 @@ LLM agents give different answers on different runs, so a single passing test pr
 - Saves every run as a JSON report, including the agent settings you give it.
 - Compares two reports with a Fisher exact test, so a gap that could be chance is labelled `NOISE` instead of a regression.
 - Warns when two compared reports used different agent settings.
+- Writes a comparison as a markdown table you can paste into a README, issue or pull request.
 - Calculates how many runs per case you need to catch a drop of a given size.
 
 ## Quick start
@@ -76,6 +77,16 @@ python scripts\compare.py reports\BEFORE.json reports\AFTER.json
 Each case gets a verdict: `SAME`, `BETTER`, `WORSE`, `NOISE`, `NEW`, `REMOVED` or `INCONCLUSIVE`. `BETTER` and `WORSE` need p < 0.05 on a Fisher exact test of the pass and fail counts. `INCONCLUSIVE` means one side had no usable runs because every run errored.
 
 Errored runs are ignored in the comparison, so a rate limit cannot show up as a regression. If the two reports recorded different configurations, `compare.py` prints a warning listing each key that changed, so a prompt or model change is not mistaken for a regression in the agent's code. If neither report recorded a configuration, it prints a note saying so.
+
+### Markdown output
+
+Add `--markdown FILE` to also write the comparison as a markdown file:
+
+```powershell
+python scripts\compare.py reports\BEFORE.json reports\AFTER.json --markdown reports\comparison.md
+```
+
+The file has the two run ids, any configuration warning, a note about errored runs, and a table with one row per case (before and after pass rate, verdict, p-value and errored counts). Pipe characters in case ids are escaped so they cannot break the table. The terminal output is the same with or without the flag.
 
 ## How many runs do I need?
 
@@ -147,15 +158,15 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
-- **The run scripts have no automated tests.** `run_nova.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`. The comparison logic and config helpers behind `compare.py` are unit tested.
+- **The run scripts have no automated tests.** `run_nova.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`. The comparison logic, the config helpers and the markdown builder behind `compare.py` are unit tested.
 
 ## Project layout
 
 ```text
-src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, power, configdiff
+src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, power, configdiff, markdown_report
 src/agentprobe/adapters/   base, mock, nova
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases), nova_border.jsonl (4 border cases)
 scripts/                   run_eval.py, run_nova.py, compare.py, runs_needed.py
 docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md, soft-prompt-pilot.md
-tests/unit/                133 tests, no network needed
+tests/unit/                143 tests, no network needed
 ```
