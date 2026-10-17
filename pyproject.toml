@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentprobe-eval"
-version = "0.1.1"
+version = "0.2.0"
 description = "Evaluation and regression testing for AI agents"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -32,3 +32,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[project.scripts]
+agentprobe-compare = "agentprobe.cli.compare:main"

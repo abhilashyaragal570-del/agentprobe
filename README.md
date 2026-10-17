@@ -19,7 +19,7 @@ The package on PyPI is named `agentprobe-eval`, but you import it as `agentprobe
 from agentprobe.compare import compare_reports
 ```
 
-- **The PyPI package is the library only.** The command-line scripts (`run_nova.py`, `run_http.py`, `compare.py`, `runs_needed.py`, `run_eval.py`) and the datasets live in the [GitHub repository](https://github.com/abhilashyaragal570-del/agentprobe), so clone it to use them.
+- **The PyPI package is the library plus one command.** `pip install agentprobe-eval` also gives you `agentprobe-compare`, which does the same as `scripts/compare.py`. The other scripts (`run_nova.py`, `run_http.py`, `runs_needed.py`, `run_eval.py`) and the datasets live in the [GitHub repository](https://github.com/abhilashyaragal570-del/agentprobe), so clone it to use them.
 - **Name clash.** A different, unrelated project on PyPI is called `agentprobe` and also provides a Python module named `agentprobe`. Do not install both into the same environment, because they would overwrite each other's files.
 - You can also install straight from GitHub: `pip install git+https://github.com/abhilashyaragal570-del/agentprobe.git`.
 - The package is published on [PyPI](https://pypi.org/project/agentprobe-eval/). The description shown there is fixed for each released version, so it can lag behind this README until the next release.
@@ -121,26 +121,28 @@ Cases default to exact matching. Set `"answer_match": "contains"` for LLM answer
 ## Comparing runs
 
 ```powershell
-python scripts\compare.py reports\BEFORE.json reports\AFTER.json
+agentprobe-compare reports\BEFORE.json reports\AFTER.json
 ```
+
+From a clone you can also run `python scripts\compare.py` with the same arguments.
 
 Each case gets a verdict: `SAME`, `BETTER`, `WORSE`, `NOISE`, `NEW`, `REMOVED` or `INCONCLUSIVE`. `BETTER` and `WORSE` need p < 0.05 on a Fisher exact test of the pass and fail counts. `INCONCLUSIVE` means one side had no usable runs because every run errored.
 
-Errored runs are ignored in the comparison, so a rate limit cannot show up as a regression. If the two reports recorded different configurations, `compare.py` prints a warning listing each key that changed, so a prompt or model change is not mistaken for a regression in the agent's code. If neither report recorded a configuration, it prints a note saying so.
+Errored runs are ignored in the comparison, so a rate limit cannot show up as a regression. If the two reports recorded different configurations, the compare command prints a warning listing each key that changed, so a prompt or model change is not mistaken for a regression in the agent's code. If neither report recorded a configuration, it prints a note saying so.
 
 ### Markdown output
 
 Add `--markdown FILE` to also write the comparison as a markdown file:
 
 ```powershell
-python scripts\compare.py reports\BEFORE.json reports\AFTER.json --markdown reports\comparison.md
+agentprobe-compare reports\BEFORE.json reports\AFTER.json --markdown reports\comparison.md
 ```
 
 The file has the two run ids, any configuration warning, a note about errored runs, and a table with one row per case (before and after pass rate, verdict, p-value and errored counts). Pipe characters in case ids are escaped so they cannot break the table. The terminal output is the same with or without the flag.
 
 ## How many runs do I need?
 
-A small drop needs many more runs than a large one. `runs_needed.py` works out how often `compare.py` would call a drop `WORSE`, using the same Fisher test, for a given true pass rate before and after:
+A small drop needs many more runs than a large one. `runs_needed.py` works out how often the compare command would call a drop `WORSE`, using the same Fisher test, for a given true pass rate before and after:
 
 ```powershell
 python scripts\runs_needed.py --before 1.0 --after 0.8
@@ -208,17 +210,18 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **The calculator assumes known pass rates.** It tells you how many runs a drop of a size you pick would need. It cannot tell you what drop your agent will actually have.
 - **Errored runs hide real failures.** A server that fails with an error on every call looks the same as a rate limit, so check the printed error messages before trusting a run.
 - **The generic HTTP adapter is only tested with a fake transport.** It handles one JSON request and one JSON reply. It does not support streaming replies, multi-turn conversations, or request shapes where the input is nested inside the body (only top-level keys, plus fixed extra fields in code).
-- **The PyPI package has no command-line entry points.** The scripts are only in the repository, so using them means cloning it.
+- **Only one command ships with the PyPI package.** `agentprobe-compare` is installed by pip. `run_nova.py`, `run_http.py`, `runs_needed.py` and `run_eval.py` are still repo-only scripts, so using them means cloning the repository.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
-- **The run scripts have no automated tests.** `run_nova.py`, `run_http.py` and `compare.py` are checked by reading their output, and the dataset tests only cover the files in `datasets/`. The comparison logic, the config helpers, the markdown builder, the HTTP adapter and the runner (including parallel runs) are unit tested.
+- **The run scripts have almost no automated tests.** `run_nova.py` and `run_http.py` are checked by reading their output, and `agentprobe-compare` has only a `--help` test; its output was checked by hand against the old script. The dataset tests only cover the files in `datasets/`. The comparison logic, the config helpers, the markdown builder, the HTTP adapter and the runner (including parallel runs) are unit tested.
 
 ## Project layout
 
 ```text
 src/agentprobe/            schemas, dataset, runner, scoring, storage, summary, compare, stats, power, configdiff, markdown_report
 src/agentprobe/adapters/   base, mock, nova, http
+src/agentprobe/cli/        compare (the agentprobe-compare command)
 datasets/                  nova_tools.jsonl (mock), nova_live.jsonl (13 real Nova cases), nova_border.jsonl (4 border cases)
-scripts/                   run_eval.py, run_http.py, run_nova.py, compare.py, runs_needed.py
+scripts/                   run_eval.py, run_http.py, run_nova.py, compare.py (wrapper), runs_needed.py
 docs/                      sample-run.md, regression-check.md, subtle-regression.md, partial-regression.md, soft-prompt-pilot.md
-tests/unit/                170 tests, no network needed
+tests/unit/                171 tests, no network needed
 ```
