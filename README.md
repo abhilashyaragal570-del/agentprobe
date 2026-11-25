@@ -1,4 +1,4 @@
-﻿# AgentProbe
+# AgentProbe
 
 [![CI](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml/badge.svg)](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/agentprobe-eval.svg)](https://pypi.org/project/agentprobe-eval/)
@@ -213,6 +213,12 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 - **Only one command ships with the PyPI package.** `agentprobe-compare` is installed by pip. `run_nova.py`, `run_http.py`, `runs_needed.py` and `run_eval.py` are still repo-only scripts, so using them means cloning the repository.
 - **Live reports are not committed.** `reports/*.json` is in `.gitignore` because reports can contain personal answers.
 - **The run scripts have almost no automated tests.** `run_nova.py` and `run_http.py` are checked by reading their output, and `agentprobe-compare` has only a `--help` test; its output was checked by hand against the old script. The dataset tests only cover the files in `datasets/`. The comparison logic, the config helpers, the markdown builder, the HTTP adapter and the runner (including parallel runs) are unit tested.
+
+## Citing AgentProbe
+
+If you use AgentProbe in your work, please cite it. GitHub's "Cite this
+repository" button reads `CITATION.cff`. A DOI is issued through Zenodo for
+each release: https://doi.org/10.5281/zenodo.XXXXXXX
 
 ## Project layout
 

@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use AgentProbe, please cite it as below."
+title: "AgentProbe: Noise-aware evaluation and regression testing for AI agents"
+type: software
+authors:
+  - family-names: Yaragal
+    given-names: Abhilash
+    orcid: "https://orcid.org/0009-0007-4892-6135"
+repository-code: "https://github.com/abhilashyaragal570-del/agentprobe"
+url: "https://pypi.org/project/agentprobe-eval/"
+abstract: >-
+  AgentProbe runs each test case for an AI agent several times, scores every
+  run, labels cases as stable or flaky, and compares two reports with a
+  Fisher exact test so that differences that could be chance are labelled
+  NOISE instead of regressions. It excludes errored runs (rate limits,
+  timeouts) from pass rates and includes a calculator for how many runs are
+  needed to detect a drop of a given size.
+keywords:
+  - AI agents
+  - LLM evaluation
+  - regression testing
+  - flaky tests
+  - statistical testing
+license: MIT
+version: 0.2.0
+date-released: "2026-10-17"
