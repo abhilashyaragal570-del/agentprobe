@@ -6,6 +6,7 @@ authors:
   - family-names: Yaragal
     given-names: Abhilash
     orcid: "https://orcid.org/0009-0007-4892-6135"
+doi: 10.5281/zenodo.24521435
 repository-code: "https://github.com/abhilashyaragal570-del/agentprobe"
 url: "https://pypi.org/project/agentprobe-eval/"
 abstract: >-

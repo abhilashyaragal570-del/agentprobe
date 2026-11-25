@@ -1,6 +1,6 @@
 # AgentProbe
 
-[![CI](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml/badge.svg)](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml)
+[![CI](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml/badge.svg)](https://github.com/abhilashyaragal570-del/agentprobe/actions/workflows/ci.yml) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24521435.svg)](https://doi.org/10.5281/zenodo.24521435)
 [![PyPI](https://img.shields.io/pypi/v/agentprobe-eval.svg)](https://pypi.org/project/agentprobe-eval/)
 
 Evaluation and regression testing for AI agents.
@@ -218,7 +218,7 @@ Every push to `main` and every pull request runs the unit tests and the mock-age
 
 If you use AgentProbe in your work, please cite it. GitHub's "Cite this
 repository" button reads `CITATION.cff`. A DOI is issued through Zenodo for
-each release: https://doi.org/10.5281/zenodo.XXXXXXX
+each release: https://doi.org/10.5281/zenodo.24521435
 
 ## Project layout
 
